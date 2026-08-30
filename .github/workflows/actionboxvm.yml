@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+env:
+  ACTIONBOXVM_PROTECTED_BRANCH: main
+  ACTIONBOXVM_ESCAPE_BRANCH: tmp
+
 jobs:
   actionboxvm:
     name: ActionBoxVM
@@ -15,10 +19,12 @@ jobs:
     timeout-minutes: 340
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          persist-credentials: true
 
       - name: Install ActionBoxVM
         run: |
@@ -71,19 +77,198 @@ jobs:
             build-essential \
             dbus-x11
 
-      - name: Prepare ActionBoxVM files
+      - name: Prepare ActionBoxVM
         run: |
           set -e
 
           mkdir -p actionboxvm
           mkdir -p /tmp/actionboxvm
 
-          chmod +x actionboxvm/status.sh
-          chmod +x actionboxvm/screenshot.sh
-
           test -f actionboxvm/status.sh
           test -f actionboxvm/screenshot.sh
           test -f actionboxvm/screenshot-worker.py
+
+          chmod +x actionboxvm/status.sh
+          chmod +x actionboxvm/screenshot.sh
+          chmod +x actionboxvm/screenshot-worker.py
+
+      - name: Install ActionBoxVM Git protection
+        shell: bash
+        run: |
+          set -e
+
+          mkdir -p "$HOME/.config/actionboxvm-git"
+
+          cat > "$HOME/.config/actionboxvm-git/pre-push" <<'HOOK'
+          #!/usr/bin/env bash
+
+          set -u
+
+          PROTECTED_BRANCH="${ACTIONBOXVM_PROTECTED_BRANCH:-main}"
+          ESCAPE_BRANCH="${ACTIONBOXVM_ESCAPE_BRANCH:-tmp}"
+
+          ALLOWED_FILES=(
+            "0.png"
+            "status.json"
+            "actionbox.desktop"
+          )
+
+          is_allowed() {
+            local file="$1"
+
+            for allowed in "${ALLOWED_FILES[@]}"; do
+              if [ "$file" = "$allowed" ]; then
+                return 0
+              fi
+            done
+
+            return 1
+          }
+
+          branch_name_from_ref() {
+            local ref="$1"
+
+            case "$ref" in
+              refs/heads/*)
+                printf '%s\n' "${ref#refs/heads/}"
+                ;;
+              *)
+                printf '%s\n' ""
+                ;;
+            esac
+          }
+
+          while read -r local_ref local_sha remote_ref remote_sha; do
+
+            [ -n "$local_ref" ] || continue
+
+            target_branch="$(branch_name_from_ref "$remote_ref")"
+
+            if [ -z "$target_branch" ]; then
+              continue
+            fi
+
+            if [ "$target_branch" = "$ESCAPE_BRANCH" ]; then
+              continue
+            fi
+
+            if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+              echo
+              echo "ActionBoxVM: branch deletion blocked."
+              echo "The VM cannot delete repository branches."
+              echo
+              exit 1
+            fi
+
+            if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+              changed_files="$(
+                git ls-tree \
+                  -r \
+                  --name-only \
+                  "$local_sha"
+              )"
+            else
+              changed_files="$(
+                git diff \
+                  --name-only \
+                  "$remote_sha" \
+                  "$local_sha"
+              )"
+            fi
+
+            unauthorized=""
+
+            while IFS= read -r file; do
+
+              [ -n "$file" ] || continue
+
+              if ! is_allowed "$file"; then
+                unauthorized="${unauthorized}${file}"$'\n'
+              fi
+
+            done <<< "$changed_files"
+
+            if [ -z "$unauthorized" ]; then
+              continue
+            fi
+
+            echo
+            echo "============================================================"
+            echo "                    ActionBoxVM Git Guard"
+            echo "============================================================"
+            echo
+            echo "The attempted push contains files that are not"
+            echo "allowed on the protected repository branches."
+            echo
+            echo "Target:"
+            echo "  $target_branch"
+            echo
+            echo "Blocked files:"
+            printf '%s' "$unauthorized" | sed 's/^/  /'
+            echo
+            echo "Allowed files:"
+            printf '  %s\n' "${ALLOWED_FILES[@]}"
+            echo
+
+            if git ls-remote \
+              --exit-code \
+              --heads \
+              origin \
+              "$ESCAPE_BRANCH" \
+              >/dev/null 2>&1; then
+
+              echo "The '$ESCAPE_BRANCH' branch exists."
+              echo "Forwarding the attempted commit there."
+
+              if ACTIONBOXVM_INTERNAL_PUSH=1 \
+                git push \
+                  --force \
+                  origin \
+                  "${local_sha}:refs/heads/${ESCAPE_BRANCH}"
+              then
+
+                echo
+                echo "The unauthorized changes were NOT pushed"
+                echo "to '$target_branch'."
+                echo
+                echo "They remain available on:"
+                echo "  $ESCAPE_BRANCH"
+                echo
+                echo "The original push is considered handled."
+                echo "============================================================"
+                echo
+
+                exit 0
+              fi
+
+              echo
+              echo "Could not forward the changes to '$ESCAPE_BRANCH'."
+              echo "The original push has been blocked."
+              echo "============================================================"
+              echo
+
+              exit 1
+            fi
+
+            echo "The '$ESCAPE_BRANCH' branch does not exist."
+            echo "Unauthorized changes remain local."
+            echo "The original push has been blocked."
+            echo "============================================================"
+            echo
+
+            exit 1
+
+          done
+
+          exit 0
+          HOOK
+
+          chmod +x "$HOME/.config/actionboxvm-git/pre-push"
+
+          git config core.hooksPath \
+            "$HOME/.config/actionboxvm-git"
+
+          echo "ActionBoxVM Git protection enabled."
 
       - name: Configure Fluxbox
         run: |
@@ -152,7 +337,10 @@ jobs:
 
           sleep 2
 
-          if ! kill -0 "$(cat /tmp/actionboxvm-xvfb.pid)" 2>/dev/null; then
+          if ! kill -0 \
+            "$(cat /tmp/actionboxvm-xvfb.pid)" \
+            2>/dev/null; then
+
             echo "Xvfb failed to start."
             cat /tmp/actionboxvm-xvfb.log || true
             exit 1
@@ -171,7 +359,10 @@ jobs:
 
           sleep 2
 
-          if ! kill -0 "$(cat /tmp/actionboxvm-fluxbox.pid)" 2>/dev/null; then
+          if ! kill -0 \
+            "$(cat /tmp/actionboxvm-fluxbox.pid)" \
+            2>/dev/null; then
+
             echo "Fluxbox failed to start."
             cat /tmp/actionboxvm-fluxbox.log || true
             exit 1
@@ -201,6 +392,7 @@ jobs:
             if xdotool search \
               --name "^ActionBoxVM$" \
               >/dev/null 2>&1; then
+
               echo "ActionBoxVM terminal is running."
               exit 0
             fi
@@ -209,9 +401,10 @@ jobs:
           done
 
           echo "ActionBoxVM terminal was not detected."
-          cat /tmp/actionboxvm-xterm.log || true
-          exit 1
 
+          cat /tmp/actionboxvm-xterm.log || true
+
+          exit 1
       - name: Start local VNC backend
         env:
           DISPLAY: :99
@@ -235,7 +428,10 @@ jobs:
 
           sleep 3
 
-          if ! kill -0 "$(cat /tmp/actionboxvm-rfb.pid)" 2>/dev/null; then
+          if ! kill -0 \
+            "$(cat /tmp/actionboxvm-rfb.pid)" \
+            2>/dev/null; then
+
             echo "Local VNC backend failed."
             cat /tmp/actionboxvm-rfb.log || true
             exit 1
@@ -255,7 +451,10 @@ jobs:
 
           sleep 3
 
-          if ! kill -0 "$(cat /tmp/actionboxvm-novnc.pid)" 2>/dev/null; then
+          if ! kill -0 \
+            "$(cat /tmp/actionboxvm-novnc.pid)" \
+            2>/dev/null; then
+
             echo "noVNC failed to start."
             cat /tmp/actionboxvm-novnc.log || true
             exit 1
@@ -269,6 +468,7 @@ jobs:
             >/dev/null
 
           echo "noVNC is responding."
+
       - name: Install Cloudflare Tunnel
         run: |
           set -e
@@ -323,9 +523,6 @@ jobs:
 
           TUNNEL_NOVNC="${TUNNEL_URL}/vnc.html?autoconnect=true&resize=remote"
 
-          export TUNNEL_URL
-          export TUNNEL_NOVNC
-
           echo "TUNNEL_URL=$TUNNEL_URL" >> "$GITHUB_ENV"
           echo "TUNNEL_NOVNC=$TUNNEL_NOVNC" >> "$GITHUB_ENV"
 
@@ -359,9 +556,12 @@ jobs:
           from pathlib import Path
 
           repository = os.environ["GITHUB_REPOSITORY"]
-          branch = os.environ["GITHUB_REF_NAME"]
+          branch = os.environ.get("GITHUB_REF_NAME", "main")
           run_id = os.environ["GITHUB_RUN_ID"]
-          workflow = os.environ.get("GITHUB_WORKFLOW", "ActionBoxVM")
+          workflow = os.environ.get(
+              "GITHUB_WORKFLOW",
+              "ActionBoxVM",
+          )
           novnc = os.environ["TUNNEL_NOVNC"]
           timestamp = os.environ["TIMESTAMP_VALUE"]
 
@@ -374,7 +574,7 @@ jobs:
                   "desktop": "Fluxbox",
                   "display": "Xvfb :99",
                   "resolution": "1280x720",
-                  "terminal": "Xterm"
+                  "terminal": "Xterm",
               },
 
               "tools": [
@@ -389,22 +589,25 @@ jobs:
                   "htop",
                   "btop",
                   "zip",
-                  "unzip"
+                  "unzip",
               ],
 
               "services": {
                   "noVNC": {
                       "enabled": True,
-                      "url": novnc
+                      "url": novnc,
                   },
-                  "vnc": {
+
+                  "vnc_backend": {
                       "enabled": True,
-                      "address": "127.0.0.1:5900"
+                      "address": "127.0.0.1:5900",
+                      "public": False,
                   },
+
                   "cloudflare": {
                       "enabled": True,
-                      "type": "Quick Tunnel"
-                  }
+                      "type": "Quick Tunnel",
+                  },
               },
 
               "github": {
@@ -415,7 +618,7 @@ jobs:
                   "run_url": (
                       f"https://github.com/{repository}"
                       f"/actions/runs/{run_id}"
-                  )
+                  ),
               },
 
               "files": {
@@ -425,27 +628,40 @@ jobs:
                           f"https://raw.githubusercontent.com/"
                           f"{repository}/{branch}/0.png"
                       ),
-                      "refresh_seconds": 300
+                      "refresh_seconds": 20,
                   },
+
                   "status": {
-                      "path": "status.json"
+                      "path": "status.json",
+                      "refresh_seconds": 20,
                   },
+
                   "desktop_entry": {
-                      "path": "actionbox.desktop"
-                  }
+                      "path": "actionbox.desktop",
+                  },
+              },
+
+              "git_policy": {
+                  "protected_branch": "main",
+                  "escape_branch": "tmp",
+                  "allowed_files": [
+                      "0.png",
+                      "status.json",
+                      "actionbox.desktop",
+                  ],
               },
 
               "lifetime": {
                   "vm_refresh_hours": 12,
-                  "screenshot_refresh_minutes": 5
+                  "screenshot_refresh_seconds": 20,
               },
 
-              "updated": timestamp
+              "updated": timestamp,
           }
 
           Path("status.json").write_text(
               json.dumps(data, indent=2) + "\n",
-              encoding="utf-8"
+              encoding="utf-8",
           )
           PY
 
@@ -463,63 +679,27 @@ jobs:
 
           test -s 0.png
 
-      - name: Update README access links
-        env:
-          TUNNEL_NOVNC: ${{ env.TUNNEL_NOVNC }}
-        run: |
-          set -e
-
-          if [ ! -f README.md ]; then
-            exit 0
-          fi
-
-          python3 <<'PY'
-          from pathlib import Path
-          import os
-          import re
-
-          path = Path("README.md")
-          text = path.read_text(encoding="utf-8")
-
-          novnc = os.environ["TUNNEL_NOVNC"]
-
-          text, _ = re.subn(
-              r"\[noVNC\]\([^)]*\)",
-              f"[noVNC]({novnc})",
-              text,
-              count=1
-          )
-
-          text, _ = re.subn(
-              r"\[VNC\]\([^)]*\)",
-              "[VNC](#vnc)",
-              text,
-              count=1
-          )
-
-          path.write_text(text, encoding="utf-8")
-          PY
-
-      - name: Publish initial state
+      - name: Publish initial ActionBoxVM state
         run: |
           set -e
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add 0.png
-          git add status.json
-          git add actionbox.desktop
-
-          if [ -f README.md ]; then
-            git add README.md
-          fi
+          git add -- \
+            0.png \
+            status.json \
+            actionbox.desktop
 
           if git diff --cached --quiet; then
             echo "Nothing to publish."
           else
-            git commit -m "chore: start ActionBoxVM"
-            git push
+            git commit \
+              -m "chore: start ActionBoxVM"
+
+            git push \
+              origin \
+              "${GITHUB_REF_NAME}"
           fi
 
       - name: Start screenshot service
@@ -528,8 +708,10 @@ jobs:
         run: |
           set -e
 
-          rm -f /tmp/actionboxvm/screenshot-worker.pid
-          rm -f /tmp/actionboxvm/screenshot-worker.log
+          rm -f \
+            /tmp/actionboxvm/screenshot-worker.pid \
+            /tmp/actionboxvm/screenshot-worker.log \
+            /tmp/actionboxvm/screenshot-supervisor.log
 
           ./actionboxvm/screenshot.sh \
             > /tmp/actionboxvm/screenshot-supervisor.log 2>&1 &
@@ -539,8 +721,10 @@ jobs:
           echo "$SCREENSHOT_LAUNCHER_PID" \
             > /tmp/actionboxvm/screenshot-supervisor.pid
 
-          for i in {1..20}; do
+          for i in {1..30}; do
+
             if [ -f /tmp/actionboxvm/screenshot-worker.pid ]; then
+
               SCREENSHOT_PID="$(
                 cat /tmp/actionboxvm/screenshot-worker.pid
               )"
@@ -550,22 +734,35 @@ jobs:
                 echo "PID: $SCREENSHOT_PID"
                 exit 0
               fi
+
             fi
 
             sleep 1
+
           done
 
           echo "Screenshot worker failed to start."
+
           echo
-          cat /tmp/actionboxvm/screenshot-supervisor.log || true
+          echo "Supervisor log:"
+          cat \
+            /tmp/actionboxvm/screenshot-supervisor.log \
+            2>/dev/null || true
+
           echo
-          cat /tmp/actionboxvm/screenshot-worker.log || true
+          echo "Worker log:"
+          cat \
+            /tmp/actionboxvm/screenshot-worker.log \
+            2>/dev/null || true
+
           exit 1
       - name: Start status service
         env:
           DISPLAY: :99
         run: |
           set -e
+
+          rm -f /tmp/actionboxvm/status.pid
 
           ./actionboxvm/status.sh \
             > /tmp/actionboxvm/status.log 2>&1 &
@@ -579,19 +776,19 @@ jobs:
 
           if ! kill -0 "$STATUS_PID" 2>/dev/null; then
             echo "Status service failed to start."
-            cat /tmp/actionboxvm/status.log || true
+
+            cat \
+              /tmp/actionboxvm/status.log \
+              2>/dev/null || true
+
             exit 1
           fi
 
           echo "Status service started."
           echo "PID: $STATUS_PID"
 
-      - name: Keep ActionBoxVM running
-        env:
-          DISPLAY: :99
+      - name: Display ActionBoxVM information
         run: |
-          set -e
-
           echo
           echo "============================================================"
           echo "                       ActionBoxVM"
@@ -603,16 +800,23 @@ jobs:
           echo "$TUNNEL_NOVNC"
           echo
           echo "Screenshot:"
-          echo "0.png refreshes every 5 minutes."
+          echo "0.png and status.json refresh every 20 seconds."
           echo
-          echo "Status:"
-          echo "status.json refreshes with the screenshot service."
+          echo "Git policy:"
+          echo "main: protected file whitelist"
+          echo "tmp: unrestricted"
           echo
           echo "VM:"
           echo "A fresh environment starts every 12 hours."
           echo
           echo "============================================================"
           echo
+
+      - name: Keep ActionBoxVM running
+        env:
+          DISPLAY: :99
+        run: |
+          set -e
 
           while true; do
 
@@ -624,18 +828,46 @@ jobs:
             if ! kill -0 \
               "$(cat /tmp/actionboxvm-xvfb.pid)" \
               2>/dev/null; then
+
               echo "Xvfb stopped."
               exit 1
             fi
 
+            if [ ! -f /tmp/actionboxvm-fluxbox.pid ]; then
+              echo "Fluxbox PID file is missing."
+              exit 1
+            fi
+
+            if ! kill -0 \
+              "$(cat /tmp/actionboxvm-fluxbox.pid)" \
+              2>/dev/null; then
+
+              echo "Fluxbox stopped."
+              exit 1
+            fi
+
+            if [ ! -f /tmp/actionboxvm-xterm.pid ]; then
+              echo "Xterm PID file is missing."
+              exit 1
+            fi
+
+            if ! kill -0 \
+              "$(cat /tmp/actionboxvm-xterm.pid)" \
+              2>/dev/null; then
+
+              echo "Xterm stopped."
+              exit 1
+            fi
+
             if [ ! -f /tmp/actionboxvm-rfb.pid ]; then
-              echo "VNC PID file is missing."
+              echo "Local VNC backend PID file is missing."
               exit 1
             fi
 
             if ! kill -0 \
               "$(cat /tmp/actionboxvm-rfb.pid)" \
               2>/dev/null; then
+
               echo "Local VNC backend stopped."
               exit 1
             fi
@@ -648,6 +880,7 @@ jobs:
             if ! kill -0 \
               "$(cat /tmp/actionboxvm-novnc.pid)" \
               2>/dev/null; then
+
               echo "noVNC stopped."
               exit 1
             fi
@@ -660,6 +893,7 @@ jobs:
             if ! kill -0 \
               "$(cat /tmp/actionboxvm-cloudflared.pid)" \
               2>/dev/null; then
+
               echo "Cloudflare Tunnel stopped."
               exit 1
             fi
@@ -673,7 +907,10 @@ jobs:
               cat /tmp/actionboxvm/screenshot-worker.pid
             )"
 
-            if ! kill -0 "$SCREENSHOT_PID" 2>/dev/null; then
+            if ! kill -0 \
+              "$SCREENSHOT_PID" \
+              2>/dev/null; then
+
               echo "Screenshot worker stopped."
 
               echo
@@ -700,7 +937,10 @@ jobs:
               cat /tmp/actionboxvm/status.pid
             )"
 
-            if ! kill -0 "$STATUS_PID" 2>/dev/null; then
+            if ! kill -0 \
+              "$STATUS_PID" \
+              2>/dev/null; then
+
               echo "Status service stopped."
               exit 1
             fi
