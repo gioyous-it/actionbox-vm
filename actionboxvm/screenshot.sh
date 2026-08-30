@@ -32,10 +32,7 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 # --------------------------------------------------------------
-# Start the actual worker.
-#
-# The worker is Python rather than Bash so the screenshot process
-# itself is independent from the shell that launched it.
+# Start the Python screenshot worker.
 # --------------------------------------------------------------
 
 nohup \
@@ -50,11 +47,5 @@ echo "$WORKER_PID" > "$PID_FILE"
 echo "ActionBoxVM screenshot worker started."
 echo "PID: $WORKER_PID"
 echo "DISPLAY: $DISPLAY"
-
-# --------------------------------------------------------------
-# The launcher exits; the worker remains responsible for the
-# screenshots. The main ActionBoxVM step owns the lifetime of the
-# runner and monitors the worker.
-# --------------------------------------------------------------
 
 exit 0
