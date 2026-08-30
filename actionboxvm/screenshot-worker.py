@@ -236,36 +236,41 @@ def configure_git():
 def publish():
     configure_git()
 
-    branch = subprocess.check_output(
-        [
-            "git",
-            "branch",
-            "--show-current",
-        ],
-        text=True,
-    ).strip()
-
-    if not branch:
-        branch = os.environ.get(
-            "GITHUB_REF_NAME",
-            "main",
-        )
+    branch = os.environ.get(
+        "GITHUB_REF_NAME",
+        "main",
+    )
 
     log(
         f"Publishing ActionBoxVM state to {branch}."
     )
 
+    backup_dir = STATE_DIR / "publish"
+
+    backup_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    backup_png = backup_dir / "0.png"
+    backup_status = backup_dir / "status.json"
+
+    backup_png.write_bytes(
+        OUTPUT.read_bytes()
+    )
+
+    backup_status.write_bytes(
+        STATUS.read_bytes()
+    )
+
     for attempt in range(1, 6):
 
         try:
+
             log(
                 f"Publishing ActionBoxVM state "
                 f"(attempt {attempt}/5)"
             )
-
-            # --------------------------------------------------
-            # Get the newest remote state.
-            # --------------------------------------------------
 
             run(
                 [
@@ -276,53 +281,10 @@ def publish():
                 ]
             )
 
-            # --------------------------------------------------
-            # Save ONLY the generated files.
-            #
-            # Everything else is restored from the remote branch.
-            # --------------------------------------------------
-
             run(
                 [
                     "git",
-                    "checkout",
-                    "--",
-                    "0.png",
-                    "status.json",
-                ],
-            ) if False else None
-
-            # --------------------------------------------------
-            # The generated files currently exist in the working
-            # tree. Copy them somewhere outside Git temporarily.
-            # --------------------------------------------------
-
-            backup_dir = STATE_DIR / "publish"
-
-            backup_dir.mkdir(
-                parents=True,
-                exist_ok=True,
-            )
-
-            backup_png = backup_dir / "0.png"
-            backup_status = backup_dir / "status.json"
-
-            backup_png.write_bytes(
-                OUTPUT.read_bytes()
-            )
-
-            backup_status.write_bytes(
-                STATUS.read_bytes()
-            )
-
-            # --------------------------------------------------
-            # Make the working tree exactly match origin/branch.
-            # --------------------------------------------------
-
-            run(
-                [
-                    "git",
-                    reset,
+                    "reset",
                     "--hard",
                     f"origin/{branch}",
                 ]
@@ -331,14 +293,10 @@ def publish():
             run(
                 [
                     "git",
-                    clean,
+                    "clean",
                     "-fd",
                 ]
             )
-
-            # --------------------------------------------------
-            # Restore the freshly generated files.
-            # --------------------------------------------------
 
             OUTPUT.write_bytes(
                 backup_png.read_bytes()
@@ -348,14 +306,11 @@ def publish():
                 backup_status.read_bytes()
             )
 
-            # --------------------------------------------------
-            # Stage only the files owned by this worker.
-            # --------------------------------------------------
-
             run(
                 [
                     "git",
                     "add",
+                    "--",
                     "0.png",
                     "status.json",
                 ]
@@ -372,9 +327,11 @@ def publish():
             )
 
             if unchanged.returncode == 0:
+
                 log(
                     "0.png and status.json are unchanged."
                 )
+
                 return
 
             run(
@@ -385,10 +342,6 @@ def publish():
                     "chore: refresh ActionBoxVM status",
                 ]
             )
-
-            # --------------------------------------------------
-            # Push the commit.
-            # --------------------------------------------------
 
             result = subprocess.run(
                 [
@@ -401,16 +354,20 @@ def publish():
             )
 
             if result.returncode == 0:
+
                 log(
                     "0.png and status.json published."
                 )
+
                 return
 
             log(
-                "Push was rejected because the remote changed."
+                "Push was rejected because "
+                "the remote changed."
             )
 
         except Exception as exc:
+
             log(
                 f"Publish attempt failed: {exc}"
             )
@@ -418,7 +375,8 @@ def publish():
         time.sleep(2)
 
     raise RuntimeError(
-        "Unable to publish ActionBoxVM state after 5 attempts."
+        "Unable to publish ActionBoxVM state "
+        "after 5 attempts."
     )
 
 
@@ -442,11 +400,13 @@ while True:
     try:
 
         if not display_available():
+
             log(
                 "X display unavailable. Retrying."
             )
 
             time.sleep(RETRY_INTERVAL)
+
             continue
 
         capture()
@@ -466,9 +426,11 @@ while True:
         time.sleep(INTERVAL)
 
     except KeyboardInterrupt:
+
         break
 
     except Exception as exc:
+
         log(
             f"Screenshot service error: {exc}"
         )
@@ -477,8 +439,11 @@ while True:
 
 
 try:
+
     PID_FILE.unlink(
         missing_ok=True,
     )
+
 except Exception:
+
     pass
