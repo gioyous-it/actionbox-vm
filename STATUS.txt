@@ -10,13 +10,13 @@ WORKFLOW
 ActionBoxVM
 
 STARTED
-2026-08-30 10:43:30 UTC
+2026-08-30 10:55:25 UTC
 
 GITHUB ACTIONS RUN
-https://github.com/gioyous-it/actionbox-vm/actions/runs/33307129457
+https://github.com/gioyous-it/actionbox-vm/actions/runs/33307595711
 
 ACCESS
-https://acquisitions-tba-proxy-exploring.trycloudflare.com/vnc.html?autoconnect=true&resize=remote
+https://zinc-hottest-glossary-ecological.trycloudflare.com/vnc.html?autoconnect=true&resize=remote
 
 DESKTOP
 OS Ubuntu
@@ -31,10 +31,10 @@ NOVNC websockify
 CLOUDFLARE Quick Tunnel
 
 SCREENSHOT
-0.png refreshed every 5 minutes by actionboxvm/screenshot.sh.
+0.png is refreshed every 5 minutes.
 
 LIFETIME
 The environment remains available while this GitHub Actions job is running.
 
 LAST UPDATED
-2026-08-30 10:43:30 UTC
+2026-08-30 10:55:25 UTC
