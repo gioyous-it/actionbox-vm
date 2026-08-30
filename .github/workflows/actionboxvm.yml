@@ -14,8 +14,6 @@ jobs:
   actionboxvm:
     name: ActionBoxVM
     runs-on: ubuntu-latest
-
-    # GitHub-hosted runners have a practical maximum job lifetime.
     timeout-minutes: 340
 
     steps:
@@ -82,7 +80,7 @@ jobs:
           echo "ActionBoxVM environment installed."
 
       # ==========================================================
-      # FLUXBOX CONFIGURATION
+      # FLUXBOX
       # ==========================================================
 
       - name: Configure Fluxbox
@@ -129,17 +127,15 @@ jobs:
 
           [separator]
 
-          [exec] (About ActionBoxVM) {xmessage -center "ActionBoxVM\n\nGitHub Actions graphical environment\nUbuntu + Fluxbox + Xvfb + VNC"}
+          [exec] (About ActionBoxVM) {xmessage -center "ActionBoxVM\n\nGraphical Linux environment powered by GitHub Actions\nUbuntu + Fluxbox + Xvfb + VNC"}
 
           [separator]
 
           [exit] (Exit)
           EOF
 
-          echo "Fluxbox configured."
-
       # ==========================================================
-      # START VIRTUAL DISPLAY
+      # XVFB
       # ==========================================================
 
       - name: Start Xvfb
@@ -166,7 +162,7 @@ jobs:
           echo "Xvfb :99 is running."
 
       # ==========================================================
-      # START FLUXBOX
+      # FLUXBOX
       # ==========================================================
 
       - name: Start Fluxbox
@@ -191,7 +187,7 @@ jobs:
           echo "Fluxbox is running."
 
       # ==========================================================
-      # START ACTIONBOXVM TERMINAL
+      # XTERM
       # ==========================================================
 
       - name: Start ActionBoxVM terminal
@@ -221,6 +217,7 @@ jobs:
               echo
               echo "GitHub Actions graphical environment"
               echo
+
               echo "Environment"
               echo "  OS          Ubuntu"
               echo "  Desktop     Fluxbox"
@@ -228,6 +225,7 @@ jobs:
               echo "  Resolution  1280x720"
               echo "  Terminal    Xterm"
               echo
+
               echo "Tools"
               echo "  Git         Python 3"
               echo "  nano        Vim"
@@ -236,14 +234,17 @@ jobs:
               echo "  htop        btop"
               echo "  zip         unzip"
               echo
+
               echo "Services"
               echo "  VNC         x11vnc"
               echo "  Web access  noVNC"
               echo
+
               echo "Status"
               echo "  Desktop     ONLINE"
               echo "  Terminal    ONLINE"
               echo
+
               echo "ActionBoxVM is ready."
               echo
 
@@ -256,7 +257,6 @@ jobs:
             if xdotool search \
               --name "^ActionBoxVM$" \
               >/dev/null 2>&1; then
-
               echo "ActionBoxVM terminal is running."
               exit 0
             fi
@@ -268,7 +268,7 @@ jobs:
           exit 1
 
       # ==========================================================
-      # START VNC
+      # VNC
       # ==========================================================
 
       - name: Start VNC
@@ -300,10 +300,10 @@ jobs:
             exit 1
           fi
 
-          echo "VNC is running on 127.0.0.1:5900."
+          echo "VNC is running."
 
       # ==========================================================
-      # START NOVNC
+      # NOVNC
       # ==========================================================
 
       - name: Start noVNC
@@ -336,7 +336,7 @@ jobs:
           echo "noVNC is responding."
 
       # ==========================================================
-      # CLOUDFLARE
+      # CLOUDFLARE QUICK TUNNEL
       # ==========================================================
 
       - name: Install Cloudflare Tunnel
@@ -404,30 +404,9 @@ jobs:
           echo "noVNC:"
           echo "$TUNNEL_NOVNC"
           echo
-          echo "========================================"
 
       # ==========================================================
-      # INITIAL SCREENSHOT
-      # ==========================================================
-
-      - name: Capture initial desktop screenshot
-        env:
-          DISPLAY: :99
-        run: |
-          set -e
-
-          import \
-            -display :99 \
-            -window root \
-            -quality 92 \
-            0.png
-
-          test -s 0.png
-
-          echo "Initial 0.png created."
-
-      # ==========================================================
-      # CREATE STATUS
+      # INITIAL STATUS
       # ==========================================================
 
       - name: Create STATUS.txt
@@ -471,7 +450,7 @@ jobs:
             'CLOUDFLARE Quick Tunnel' \
             '' \
             'SCREENSHOT' \
-            '0.png refreshed every 5 minutes by actionboxvm/screenshot.sh.' \
+            '0.png is refreshed every 5 minutes.' \
             '' \
             'LIFETIME' \
             'The environment remains available while this GitHub Actions job is running.' \
@@ -480,10 +459,8 @@ jobs:
             "$TIMESTAMP" \
             > STATUS.txt
 
-          echo "STATUS.txt created."
-
       # ==========================================================
-      # UPDATE README
+      # INITIAL README UPDATE
       # ==========================================================
 
       - name: Update README VNC link
@@ -493,7 +470,7 @@ jobs:
           set -e
 
           if [ ! -f README.md ]; then
-            echo "README.md not found. Skipping README update."
+            echo "README.md not found."
             exit 0
           fi
 
@@ -503,6 +480,7 @@ jobs:
           import re
 
           path = Path("README.md")
+
           text = path.read_text(encoding="utf-8")
           url = os.environ["TUNNEL_NOVNC"]
 
@@ -518,14 +496,35 @@ jobs:
               raise SystemExit(0)
 
           path.write_text(updated, encoding="utf-8")
+
           print("README VNC link updated.")
           PY
 
       # ==========================================================
-      # PUBLISH STARTUP STATE
+      # INITIAL SCREENSHOT
       # ==========================================================
 
-      - name: Publish ActionBoxVM state
+      - name: Capture initial screenshot
+        env:
+          DISPLAY: :99
+        run: |
+          set -e
+
+          import \
+            -display :99 \
+            -window root \
+            -quality 92 \
+            0.png
+
+          test -s 0.png
+
+          echo "Initial 0.png captured."
+
+      # ==========================================================
+      # PUBLISH INITIAL STATE
+      # ==========================================================
+
+      - name: Publish initial ActionBoxVM state
         run: |
           set -e
 
@@ -542,30 +541,25 @@ jobs:
           if git diff --cached --quiet; then
             echo "Nothing to publish."
           else
-            git commit -m "chore: update ActionBoxVM state"
-
-            for attempt in 1 2 3 4 5; do
-              if git push; then
-                echo "ActionBoxVM state published."
-                break
-              fi
-
-              echo "Push failed. Synchronizing with remote..."
-              git pull --rebase origin "$(git branch --show-current)" || true
-              sleep 2
-
-              if [ "$attempt" -eq 5 ]; then
-                echo "Unable to publish ActionBoxVM state."
-                exit 1
-              fi
-            done
+            git commit -m "chore: start ActionBoxVM"
+            git push
           fi
 
       # ==========================================================
-      # START SCREENSHOT SERVICE
+      # RUN SCREENSHOT SERVICE + KEEP VM ALIVE
+      # ==========================================================
+      #
+      # IMPORTANT:
+      #
+      # The screenshot service is started from THIS long-running
+      # step. The step does not finish while ActionBoxVM is alive.
+      #
+      # The screenshot worker therefore remains on the same runner
+      # and uses the same DISPLAY=:99 exposed through VNC.
+      #
       # ==========================================================
 
-      - name: Start screenshot service
+      - name: Run ActionBoxVM
         env:
           DISPLAY: :99
         run: |
@@ -575,100 +569,130 @@ jobs:
 
           if [ ! -f "$SCREENSHOT_SERVICE" ]; then
             echo "Missing $SCREENSHOT_SERVICE"
-            echo "Add the ActionBoxVM screenshot service to the repository."
             exit 1
           fi
 
           chmod +x "$SCREENSHOT_SERVICE"
 
-          nohup \
-            setsid \
-            "$SCREENSHOT_SERVICE" \
-            </dev/null \
-            >/tmp/actionboxvm-screenshot.log 2>&1 &
+          mkdir -p /tmp/actionboxvm
 
-          echo $! > /tmp/actionboxvm-screenshot-launcher.pid
+          echo "Starting ActionBoxVM screenshot service..."
 
-          sleep 2
+          "$SCREENSHOT_SERVICE" \
+            >/tmp/actionboxvm/screenshot-supervisor.log 2>&1 &
+
+          SCREENSHOT_SUPERVISOR_PID=$!
+
+          echo "$SCREENSHOT_SUPERVISOR_PID" \
+            >/tmp/actionboxvm/screenshot-supervisor.pid
+
+          sleep 3
 
           if [ ! -f /tmp/actionboxvm/screenshot-worker.pid ]; then
-            echo "Screenshot service did not start correctly."
+            echo "Screenshot worker did not start."
+
             echo
-            cat /tmp/actionboxvm-screenshot.log || true
+            echo "Screenshot supervisor log:"
+            cat /tmp/actionboxvm/screenshot-supervisor.log || true
+
+            echo
+            echo "Screenshot worker log:"
+            cat /tmp/actionboxvm/screenshot-worker.log || true
+
             exit 1
           fi
 
-          echo "ActionBoxVM screenshot service is running."
-          cat /tmp/actionboxvm/screenshot-worker.pid
+          SCREENSHOT_PID="$(cat /tmp/actionboxvm/screenshot-worker.pid)"
 
-      # ==========================================================
-      # ACCESS INFORMATION
-      # ==========================================================
+          if ! kill -0 "$SCREENSHOT_PID" 2>/dev/null; then
+            echo "Screenshot worker is not running."
 
-      - name: Display ActionBoxVM information
-        run: |
-          echo
-          echo "============================================================"
-          echo "                       ActionBoxVM"
-          echo "============================================================"
-          echo
-          echo "STATUS"
-          echo "  ONLINE"
-          echo
-          echo "DESKTOP"
-          echo "  Ubuntu"
-          echo "  Fluxbox"
-          echo "  Xvfb :99"
-          echo "  1280x720"
-          echo
-          echo "ACCESS"
-          echo "  ${TUNNEL_NOVNC}"
-          echo
-          echo "SCREENSHOT"
-          echo "  0.png"
-          echo "  Every 5 minutes"
-          echo
-          echo "STATUS"
-          echo "  STATUS.txt"
-          echo
-          echo "============================================================"
-          echo
+            echo
+            cat /tmp/actionboxvm/screenshot-worker.log || true
 
-      # ==========================================================
-      # KEEP VM ALIVE
-      # ==========================================================
+            exit 1
+          fi
 
-      - name: Keep ActionBoxVM running
-        run: |
-          set -e
+          echo "Screenshot service is running."
+          echo "Screenshot worker PID: $SCREENSHOT_PID"
+          echo
+          echo "ActionBoxVM:"
+          echo "$TUNNEL_NOVNC"
+          echo
 
           while true; do
 
-            if ! kill -0 "$(cat /tmp/actionboxvm-xvfb.pid)" 2>/dev/null; then
+            # ------------------------------------------------------
+            # DISPLAY
+            # ------------------------------------------------------
+
+            if ! kill -0 \
+              "$(cat /tmp/actionboxvm-xvfb.pid)" \
+              2>/dev/null; then
+
               echo "Xvfb stopped."
               exit 1
             fi
 
-            if ! kill -0 "$(cat /tmp/actionboxvm-vnc.pid)" 2>/dev/null; then
+            # ------------------------------------------------------
+            # VNC
+            # ------------------------------------------------------
+
+            if ! kill -0 \
+              "$(cat /tmp/actionboxvm-vnc.pid)" \
+              2>/dev/null; then
+
               echo "VNC stopped."
               exit 1
             fi
 
-            if ! kill -0 "$(cat /tmp/actionboxvm-novnc.pid)" 2>/dev/null; then
+            # ------------------------------------------------------
+            # NOVNC
+            # ------------------------------------------------------
+
+            if ! kill -0 \
+              "$(cat /tmp/actionboxvm-novnc.pid)" \
+              2>/dev/null; then
+
               echo "noVNC stopped."
               exit 1
             fi
 
-            if ! kill -0 "$(cat /tmp/actionboxvm-cloudflared.pid)" 2>/dev/null; then
+            # ------------------------------------------------------
+            # CLOUDFLARE
+            # ------------------------------------------------------
+
+            if ! kill -0 \
+              "$(cat /tmp/actionboxvm-cloudflared.pid)" \
+              2>/dev/null; then
+
               echo "Cloudflare Tunnel stopped."
               exit 1
             fi
 
-            if [ -f /tmp/actionboxvm/screenshot-worker.pid ]; then
-              if ! kill -0 "$(cat /tmp/actionboxvm/screenshot-worker.pid)" 2>/dev/null; then
-                echo "Screenshot worker stopped."
-                exit 1
-              fi
+            # ------------------------------------------------------
+            # SCREENSHOT SERVICE
+            # ------------------------------------------------------
+
+            if [ ! -f /tmp/actionboxvm/screenshot-worker.pid ]; then
+              echo "Screenshot worker PID file is missing."
+              exit 1
+            fi
+
+            SCREENSHOT_PID="$(cat /tmp/actionboxvm/screenshot-worker.pid)"
+
+            if ! kill -0 "$SCREENSHOT_PID" 2>/dev/null; then
+              echo "Screenshot worker stopped."
+
+              echo
+              echo "Screenshot worker log:"
+              cat /tmp/actionboxvm/screenshot-worker.log || true
+
+              echo
+              echo "Screenshot supervisor log:"
+              cat /tmp/actionboxvm/screenshot-supervisor.log || true
+
+              exit 1
             fi
 
             sleep 60
