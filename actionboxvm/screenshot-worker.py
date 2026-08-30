@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import subprocess
-import sys
 import time
 from pathlib import Path
 
-
-# ==============================================================
-# CONFIGURATION
-# ==============================================================
 
 DISPLAY = os.environ.get("DISPLAY", ":99")
 
@@ -17,26 +13,20 @@ ROOT = Path.cwd()
 
 OUTPUT = ROOT / "0.png"
 TEMPORARY = ROOT / ".actionboxvm-0.png"
+STATUS = ROOT / "status.json"
 
 STATE_DIR = Path("/tmp/actionboxvm")
 PID_FILE = STATE_DIR / "screenshot-worker.pid"
 
-# Five minutes.
 INTERVAL = 300
-
-# Retry the X display every ten seconds.
 RETRY_INTERVAL = 10
 
 
-# ==============================================================
-# HELPERS
-# ==============================================================
-
-def log(message: str) -> None:
+def log(message):
     print(message, flush=True)
 
 
-def write_pid() -> None:
+def write_pid():
     STATE_DIR.mkdir(
         parents=True,
         exist_ok=True,
@@ -48,7 +38,7 @@ def write_pid() -> None:
     )
 
 
-def display_available() -> bool:
+def display_available():
     result = subprocess.run(
         [
             "xdpyinfo",
@@ -63,7 +53,7 @@ def display_available() -> bool:
     return result.returncode == 0
 
 
-def capture() -> None:
+def capture():
     subprocess.run(
         [
             "import",
@@ -85,13 +75,138 @@ def capture() -> None:
 
     if TEMPORARY.stat().st_size == 0:
         raise RuntimeError(
-            "ImageMagick created an empty screenshot."
+            "Screenshot is empty."
         )
 
     TEMPORARY.replace(OUTPUT)
 
 
-def git_configure() -> None:
+def create_status():
+    repository = os.environ.get(
+        "GITHUB_REPOSITORY",
+        "unknown",
+    )
+
+    branch = os.environ.get(
+        "GITHUB_REF_NAME",
+        "unknown",
+    )
+
+    workflow = os.environ.get(
+        "GITHUB_WORKFLOW",
+        "ActionBoxVM",
+    )
+
+    run_id = os.environ.get(
+        "GITHUB_RUN_ID",
+        "unknown",
+    )
+
+    tunnel = os.environ.get(
+        "TUNNEL_NOVNC",
+        "",
+    )
+
+    timestamp = time.strftime(
+        "%Y-%m-%d %H:%M:%S UTC",
+        time.gmtime(),
+    )
+
+    data = {
+        "project": "ActionBoxVM",
+        "status": "online",
+
+        "environment": {
+            "os": "Ubuntu",
+            "desktop": "Fluxbox",
+            "display": "Xvfb :99",
+            "resolution": "1280x720",
+            "terminal": "Xterm",
+        },
+
+        "tools": [
+            "Git",
+            "Python 3",
+            "nano",
+            "Vim",
+            "curl",
+            "wget",
+            "jq",
+            "tree",
+            "htop",
+            "btop",
+            "zip",
+            "unzip",
+        ],
+
+        "services": {
+            "vnc": {
+                "enabled": True,
+                "host": "127.0.0.1",
+                "port": 5900,
+                "public": False,
+            },
+
+            "noVNC": {
+                "enabled": bool(tunnel),
+                "url": tunnel,
+            },
+
+            "cloudflare": {
+                "enabled": bool(tunnel),
+                "type": "Quick Tunnel",
+            },
+        },
+
+        "github": {
+            "repository": repository,
+            "branch": branch,
+            "workflow": workflow,
+            "run_id": run_id,
+            "run_url": (
+                f"https://github.com/"
+                f"{repository}/actions/runs/{run_id}"
+            ),
+        },
+
+        "files": {
+            "screenshot": {
+                "path": "0.png",
+                "raw_url": (
+                    f"https://raw.githubusercontent.com/"
+                    f"{repository}/{branch}/0.png"
+                ),
+                "refresh_seconds": INTERVAL,
+            },
+
+            "status": {
+                "path": "status.json",
+                "refresh_seconds": INTERVAL,
+            },
+
+            "desktop_entry": {
+                "path": "actionbox.desktop",
+            },
+        },
+
+        "lifetime": {
+            "vm_refresh_hours": 12,
+            "screenshot_refresh_minutes": 5,
+        },
+
+        "updated": timestamp,
+    }
+
+    STATUS.write_text(
+        json.dumps(
+            data,
+            indent=2,
+        ) + "\n",
+        encoding="utf-8",
+    )
+
+
+def configure_git():
     subprocess.run(
         [
             "git",
@@ -113,12 +228,15 @@ def git_configure() -> None:
     )
 
 
-def publish() -> None:
+def publish():
+    configure_git()
+
     subprocess.run(
         [
             "git",
             "add",
             "0.png",
+            "status.json",
         ],
         check=True,
     )
@@ -134,17 +252,15 @@ def publish() -> None:
     )
 
     if unchanged.returncode == 0:
-        log("0.png is unchanged.")
+        log("0.png and status.json are unchanged.")
         return
-
-    git_configure()
 
     subprocess.run(
         [
             "git",
             "commit",
             "-m",
-            "chore: refresh ActionBoxVM screenshot",
+            "chore: refresh ActionBoxVM status",
         ],
         check=True,
     )
@@ -160,7 +276,7 @@ def publish() -> None:
 
     if not branch:
         raise RuntimeError(
-            "Could not determine the current Git branch."
+            "Could not determine Git branch."
         )
 
     for attempt in range(1, 6):
@@ -176,7 +292,9 @@ def publish() -> None:
         )
 
         if result.returncode == 0:
-            log("0.png published successfully.")
+            log(
+                "0.png and status.json published."
+            )
             return
 
         log(
@@ -198,59 +316,45 @@ def publish() -> None:
         time.sleep(2)
 
     raise RuntimeError(
-        "Unable to publish 0.png after multiple attempts."
+        "Unable to publish ActionBoxVM state."
     )
 
-
-# ==============================================================
-# START
-# ==============================================================
 
 write_pid()
 
 log("ActionBoxVM screenshot worker started.")
 log(f"DISPLAY={DISPLAY}")
-log("Screenshot interval: 300 seconds.")
+log("Refresh interval: 300 seconds.")
 
-
-# ==============================================================
-# MAIN LOOP
-# ==============================================================
 
 while True:
 
     try:
 
         if not display_available():
-
             log(
-                "X display is unavailable. "
-                "Waiting for DISPLAY to become available."
+                "X display unavailable. Retrying."
             )
 
             time.sleep(RETRY_INTERVAL)
-
             continue
 
-        # Capture the SAME X display used by noVNC.
         capture()
 
         log("Captured 0.png.")
+
+        create_status()
+
+        log("Updated status.json.")
 
         publish()
 
         time.sleep(INTERVAL)
 
     except KeyboardInterrupt:
-
-        log(
-            "Screenshot worker received an interrupt."
-        )
-
         break
 
     except Exception as exc:
-
         log(
             f"Screenshot service error: {exc}"
         )
@@ -258,15 +362,9 @@ while True:
         time.sleep(RETRY_INTERVAL)
 
 
-# ==============================================================
-# CLEANUP
-# ==============================================================
-
 try:
     PID_FILE.unlink(
         missing_ok=True,
     )
 except Exception:
     pass
-
-sys.exit(0)
