@@ -24,8 +24,7 @@ PID_FILE = STATE_DIR / "screenshot-worker.pid"
 # Five minutes.
 INTERVAL = 300
 
-# Retry the X display every ten seconds if it is temporarily
-# unavailable.
+# Retry the X display every ten seconds.
 RETRY_INTERVAL = 10
 
 
@@ -34,10 +33,7 @@ RETRY_INTERVAL = 10
 # ==============================================================
 
 def log(message: str) -> None:
-    print(
-        message,
-        flush=True,
-    )
+    print(message, flush=True)
 
 
 def write_pid() -> None:
@@ -167,11 +163,6 @@ def publish() -> None:
             "Could not determine the current Git branch."
         )
 
-    # ----------------------------------------------------------
-    # Retry pushes in case the repository changed between
-    # screenshot updates.
-    # ----------------------------------------------------------
-
     for attempt in range(1, 6):
 
         result = subprocess.run(
@@ -193,7 +184,6 @@ def publish() -> None:
             f"(attempt {attempt}/5)."
         )
 
-        # Do not allow a failed rebase to destroy the worker.
         subprocess.run(
             [
                 "git",
@@ -218,17 +208,9 @@ def publish() -> None:
 
 write_pid()
 
-log(
-    "ActionBoxVM screenshot worker started."
-)
-
-log(
-    f"DISPLAY={DISPLAY}"
-)
-
-log(
-    "Screenshot interval: 300 seconds."
-)
+log("ActionBoxVM screenshot worker started.")
+log(f"DISPLAY={DISPLAY}")
+log("Screenshot interval: 300 seconds.")
 
 
 # ==============================================================
@@ -238,13 +220,6 @@ log(
 while True:
 
     try:
-
-        # ------------------------------------------------------
-        # Wait for X.
-        #
-        # Fluxbox, Xterm, VNC and noVNC are not required for the
-        # worker itself. It only requires the X display.
-        # ------------------------------------------------------
 
         if not display_available():
 
@@ -257,25 +232,12 @@ while True:
 
             continue
 
-        # ------------------------------------------------------
-        # Capture the SAME desktop exposed through VNC.
-        # ------------------------------------------------------
-
+        # Capture the SAME X display used by noVNC.
         capture()
 
-        log(
-            "Captured 0.png."
-        )
-
-        # ------------------------------------------------------
-        # Publish the screenshot.
-        # ------------------------------------------------------
+        log("Captured 0.png.")
 
         publish()
-
-        # ------------------------------------------------------
-        # Wait five minutes before the next capture.
-        # ------------------------------------------------------
 
         time.sleep(INTERVAL)
 
@@ -293,7 +255,6 @@ while True:
             f"Screenshot service error: {exc}"
         )
 
-        # Keep the worker alive after an individual failure.
         time.sleep(RETRY_INTERVAL)
 
 
