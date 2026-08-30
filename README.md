@@ -10,7 +10,7 @@ Live Desktop (Screenshot updated every 5 minutes)
 
 ![ActionBoxVM desktop](0.png)
 
-[VNC](https://zinc-hottest-glossary-ecological.trycloudflare.com/vnc.html?autoconnect=true&resize=remote)
+[VNC](#raw-vnc-not-exposed)
 
 The VNC link above is updated automatically whenever a new ActionBoxVM session starts.
 

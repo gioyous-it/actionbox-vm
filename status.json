@@ -1,0 +1,38 @@
+{
+  "project": "ActionBoxVM",
+  "status": "online",
+  "workflow": "ActionBoxVM",
+  "repository": "gioyous-it/actionbox-vm",
+  "run": {
+    "id": "33310894084",
+    "url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33310894084"
+  },
+  "access": {
+    "novnc": "https://routes-investigation-parliamentary-anybody.trycloudflare.com/vnc.html?autoconnect=true&resize=remote"
+  },
+  "desktop": {
+    "os": "Ubuntu",
+    "window_manager": "Fluxbox",
+    "display": "Xvfb :99",
+    "resolution": "1280x720",
+    "terminal": "Xterm"
+  },
+  "services": {
+    "novnc": "websockify",
+    "vnc_backend": "x11vnc",
+    "cloudflare": "Quick Tunnel"
+  },
+  "files": {
+    "screenshot": "0.png",
+    "screenshot_raw": "https://raw.githubusercontent.com/gioyous-it/actionbox-vm/main/0.png",
+    "status": "status.json"
+  },
+  "screenshot": {
+    "interval_seconds": 300,
+    "interval": "5 minutes"
+  },
+  "lifetime": {
+    "description": "The environment remains available while the GitHub Actions job is running."
+  },
+  "updated": "2026-08-30 12:14:06 UTC"
+}
