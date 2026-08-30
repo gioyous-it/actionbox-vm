@@ -20,6 +20,7 @@ PID_FILE = STATE_DIR / "screenshot-worker.pid"
 
 INTERVAL = 20
 RETRY_INTERVAL = 10
+MAX_PUSH_ATTEMPTS = 5
 
 
 def log(message):
@@ -198,7 +199,7 @@ def create_status():
 
         "lifetime": {
             "vm_refresh_hours": 12,
-            "screenshot_refresh_minutes": 5,
+            "screenshot_refresh_seconds": INTERVAL,
         },
 
         "updated": timestamp,
@@ -233,13 +234,34 @@ def configure_git():
     )
 
 
+def get_branch():
+    branch = os.environ.get(
+        "GITHUB_REF_NAME",
+        "",
+    ).strip()
+
+    if branch:
+        return branch
+
+    branch = subprocess.check_output(
+        [
+            "git",
+            "branch",
+            "--show-current",
+        ],
+        text=True,
+    ).strip()
+
+    if branch:
+        return branch
+
+    return "main"
+
+
 def publish():
     configure_git()
 
-    branch = os.environ.get(
-        "GITHUB_REF_NAME",
-        "main",
-    )
+    branch = get_branch()
 
     log(
         f"Publishing ActionBoxVM state to {branch}."
@@ -263,15 +285,18 @@ def publish():
         STATUS.read_bytes()
     )
 
-    for attempt in range(1, 6):
+    for attempt in range(
+        1,
+        MAX_PUSH_ATTEMPTS + 1,
+    ):
 
         try:
-
             log(
                 f"Publishing ActionBoxVM state "
-                f"(attempt {attempt}/5)"
+                f"(attempt {attempt}/{MAX_PUSH_ATTEMPTS})"
             )
 
+            # Get the newest remote branch.
             run(
                 [
                     "git",
@@ -281,6 +306,8 @@ def publish():
                 ]
             )
 
+            # Make the local repository exactly match
+            # the newest remote branch.
             run(
                 [
                     "git",
@@ -290,14 +317,7 @@ def publish():
                 ]
             )
 
-            run(
-                [
-                    "git",
-                    "clean",
-                    "-fd",
-                ]
-            )
-
+            # Restore ONLY the files owned by this worker.
             OUTPUT.write_bytes(
                 backup_png.read_bytes()
             )
@@ -306,6 +326,8 @@ def publish():
                 backup_status.read_bytes()
             )
 
+            # Stage ONLY the two files the screenshot
+            # worker is allowed to modify.
             run(
                 [
                     "git",
@@ -327,11 +349,9 @@ def publish():
             )
 
             if unchanged.returncode == 0:
-
                 log(
                     "0.png and status.json are unchanged."
                 )
-
                 return
 
             run(
@@ -343,6 +363,8 @@ def publish():
                 ]
             )
 
+            # Push normally.
+            # We NEVER force-push.
             result = subprocess.run(
                 [
                     "git",
@@ -354,29 +376,27 @@ def publish():
             )
 
             if result.returncode == 0:
-
                 log(
                     "0.png and status.json published."
                 )
-
                 return
 
             log(
-                "Push was rejected because "
-                "the remote changed."
+                "Push was rejected because the remote "
+                "changed during publishing."
             )
 
         except Exception as exc:
-
             log(
                 f"Publish attempt failed: {exc}"
             )
 
-        time.sleep(2)
+        if attempt < MAX_PUSH_ATTEMPTS:
+            time.sleep(2)
 
     raise RuntimeError(
         "Unable to publish ActionBoxVM state "
-        "after 5 attempts."
+        f"after {MAX_PUSH_ATTEMPTS} attempts."
     )
 
 
@@ -391,59 +411,52 @@ log(
 )
 
 log(
-    "Refresh interval: 20 seconds."
+    f"Refresh interval: {INTERVAL} seconds."
 )
 
 
-while True:
+try:
+    while True:
 
-    try:
+        try:
+            if not display_available():
+                log(
+                    "X display unavailable. Retrying."
+                )
 
-        if not display_available():
+                time.sleep(RETRY_INTERVAL)
+                continue
+
+            capture()
 
             log(
-                "X display unavailable. Retrying."
+                "Captured 0.png."
+            )
+
+            create_status()
+
+            log(
+                "Updated status.json."
+            )
+
+            publish()
+
+            time.sleep(INTERVAL)
+
+        except KeyboardInterrupt:
+            break
+
+        except Exception as exc:
+            log(
+                f"Screenshot service error: {exc}"
             )
 
             time.sleep(RETRY_INTERVAL)
 
-            continue
-
-        capture()
-
-        log(
-            "Captured 0.png."
+finally:
+    try:
+        PID_FILE.unlink(
+            missing_ok=True,
         )
-
-        create_status()
-
-        log(
-            "Updated status.json."
-        )
-
-        publish()
-
-        time.sleep(INTERVAL)
-
-    except KeyboardInterrupt:
-
-        break
-
-    except Exception as exc:
-
-        log(
-            f"Screenshot service error: {exc}"
-        )
-
-        time.sleep(RETRY_INTERVAL)
-
-
-try:
-
-    PID_FILE.unlink(
-        missing_ok=True,
-    )
-
-except Exception:
-
-    pass
+    except Exception:
+        pass
