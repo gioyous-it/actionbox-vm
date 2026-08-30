@@ -10,7 +10,7 @@ Live Desktop (Screenshot updated every 5 minutes)
 
 ![ActionBoxVM desktop](0.png)
 
-[VNC](#vnc)
+[VNC](https://problems-bird-characterization-essay.trycloudflare.com/vnc.html?autoconnect=true&resize=remote)
 
 The VNC link above is updated automatically whenever a new ActionBoxVM session starts.
 
