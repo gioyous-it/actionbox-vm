@@ -16,7 +16,7 @@ jobs:
   actionboxvm:
     name: ActionBoxVM
     runs-on: ubuntu-latest
-    timeout-minutes: 340
+    timeout-minutes: 719
 
     steps:
 
