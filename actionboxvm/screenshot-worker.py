@@ -26,6 +26,14 @@ def log(message):
     print(message, flush=True)
 
 
+def run(command, **kwargs):
+    return subprocess.run(
+        command,
+        check=True,
+        **kwargs,
+    )
+
+
 def write_pid():
     STATE_DIR.mkdir(
         parents=True,
@@ -54,7 +62,7 @@ def display_available():
 
 
 def capture():
-    subprocess.run(
+    run(
         [
             "import",
             "-display",
@@ -64,8 +72,7 @@ def capture():
             "-quality",
             "92",
             str(TEMPORARY),
-        ],
-        check=True,
+        ]
     )
 
     if not TEMPORARY.exists():
@@ -89,7 +96,7 @@ def create_status():
 
     branch = os.environ.get(
         "GITHUB_REF_NAME",
-        "unknown",
+        "main",
     )
 
     workflow = os.environ.get(
@@ -207,24 +214,22 @@ def create_status():
 
 
 def configure_git():
-    subprocess.run(
+    run(
         [
             "git",
             "config",
             "user.name",
             "github-actions[bot]",
-        ],
-        check=True,
+        ]
     )
 
-    subprocess.run(
+    run(
         [
             "git",
             "config",
             "user.email",
             "41898282+github-actions[bot]@users.noreply.github.com",
-        ],
-        check=True,
+        ]
     )
 
 
@@ -241,106 +246,195 @@ def publish():
     ).strip()
 
     if not branch:
-        raise RuntimeError(
-            "Could not determine Git branch."
+        branch = os.environ.get(
+            "GITHUB_REF_NAME",
+            "main",
         )
+
+    log(
+        f"Publishing ActionBoxVM state to {branch}."
+    )
 
     for attempt in range(1, 6):
 
-        log(
-            f"Publishing ActionBoxVM state "
-            f"(attempt {attempt}/5)."
-        )
-
-        subprocess.run(
-            [
-                "git",
-                "fetch",
-                "origin",
-                branch,
-            ],
-            check=True,
-        )
-
-        subprocess.run(
-            [
-                "git",
-                "rebase",
-                f"origin/{branch}",
-            ],
-            check=True,
-        )
-
-        subprocess.run(
-            [
-                "git",
-                "add",
-                "0.png",
-                "status.json",
-            ],
-            check=True,
-        )
-
-        unchanged = subprocess.run(
-            [
-                "git",
-                "diff",
-                "--cached",
-                "--quiet",
-            ],
-            check=False,
-        )
-
-        if unchanged.returncode == 0:
+        try:
             log(
-                "0.png and status.json are unchanged."
+                f"Publishing ActionBoxVM state "
+                f"(attempt {attempt}/5)"
             )
-            return
 
-        subprocess.run(
-            [
-                "git",
-                "commit",
-                "-m",
-                "chore: refresh ActionBoxVM status",
-            ],
-            check=True,
-        )
+            # --------------------------------------------------
+            # Get the newest remote state.
+            # --------------------------------------------------
 
-        result = subprocess.run(
-            [
-                "git",
-                "push",
-                "origin",
-                branch,
-            ],
-            check=False,
-        )
+            run(
+                [
+                    "git",
+                    "fetch",
+                    "origin",
+                    branch,
+                ]
+            )
 
-        if result.returncode == 0:
+            # --------------------------------------------------
+            # Save ONLY the generated files.
+            #
+            # Everything else is restored from the remote branch.
+            # --------------------------------------------------
+
+            run(
+                [
+                    "git",
+                    "checkout",
+                    "--",
+                    "0.png",
+                    "status.json",
+                ],
+            ) if False else None
+
+            # --------------------------------------------------
+            # The generated files currently exist in the working
+            # tree. Copy them somewhere outside Git temporarily.
+            # --------------------------------------------------
+
+            backup_dir = STATE_DIR / "publish"
+
+            backup_dir.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            backup_png = backup_dir / "0.png"
+            backup_status = backup_dir / "status.json"
+
+            backup_png.write_bytes(
+                OUTPUT.read_bytes()
+            )
+
+            backup_status.write_bytes(
+                STATUS.read_bytes()
+            )
+
+            # --------------------------------------------------
+            # Make the working tree exactly match origin/branch.
+            # --------------------------------------------------
+
+            run(
+                [
+                    "git",
+                    reset,
+                    "--hard",
+                    f"origin/{branch}",
+                ]
+            )
+
+            run(
+                [
+                    "git",
+                    clean,
+                    "-fd",
+                ]
+            )
+
+            # --------------------------------------------------
+            # Restore the freshly generated files.
+            # --------------------------------------------------
+
+            OUTPUT.write_bytes(
+                backup_png.read_bytes()
+            )
+
+            STATUS.write_bytes(
+                backup_status.read_bytes()
+            )
+
+            # --------------------------------------------------
+            # Stage only the files owned by this worker.
+            # --------------------------------------------------
+
+            run(
+                [
+                    "git",
+                    "add",
+                    "0.png",
+                    "status.json",
+                ]
+            )
+
+            unchanged = subprocess.run(
+                [
+                    "git",
+                    "diff",
+                    "--cached",
+                    "--quiet",
+                ],
+                check=False,
+            )
+
+            if unchanged.returncode == 0:
+                log(
+                    "0.png and status.json are unchanged."
+                )
+                return
+
+            run(
+                [
+                    "git",
+                    "commit",
+                    "-m",
+                    "chore: refresh ActionBoxVM status",
+                ]
+            )
+
+            # --------------------------------------------------
+            # Push the commit.
+            # --------------------------------------------------
+
+            result = subprocess.run(
+                [
+                    "git",
+                    "push",
+                    "origin",
+                    branch,
+                ],
+                check=False,
+            )
+
+            if result.returncode == 0:
+                log(
+                    "0.png and status.json published."
+                )
+                return
+
             log(
-                "0.png and status.json published."
+                "Push was rejected because the remote changed."
             )
-            return
 
-        log(
-            f"Git push failed "
-            f"(attempt {attempt}/5)."
-        )
+        except Exception as exc:
+            log(
+                f"Publish attempt failed: {exc}"
+            )
 
         time.sleep(2)
 
     raise RuntimeError(
-        "Unable to publish ActionBoxVM state "
-        "after multiple attempts."
+        "Unable to publish ActionBoxVM state after 5 attempts."
     )
 
 
 write_pid()
 
-log("ActionBoxVM screenshot worker started.")
-log(f"DISPLAY={DISPLAY}")
-log("Refresh interval: 300 seconds.")
+log(
+    "ActionBoxVM screenshot worker started."
+)
+
+log(
+    f"DISPLAY={DISPLAY}"
+)
+
+log(
+    "Refresh interval: 300 seconds."
+)
 
 
 while True:
@@ -357,11 +451,15 @@ while True:
 
         capture()
 
-        log("Captured 0.png.")
+        log(
+            "Captured 0.png."
+        )
 
         create_status()
 
-        log("Updated status.json.")
+        log(
+            "Updated status.json."
+        )
 
         publish()
 
