@@ -127,7 +127,7 @@ jobs:
 
           [separator]
 
-          [exec] (About ActionBoxVM) {xmessage -center "ActionBoxVM\n\nGraphical Linux environment powered by GitHub Actions\nUbuntu + Fluxbox + Xvfb + VNC"}
+          [exec] (About ActionBoxVM) {xmessage -center "ActionBoxVM\n\nGraphical Linux environment powered by GitHub Actions\nUbuntu + Fluxbox + Xvfb + noVNC"}
 
           [separator]
 
@@ -235,9 +235,9 @@ jobs:
               echo "  zip         unzip"
               echo
 
-              echo "Services"
-              echo "  VNC         x11vnc"
-              echo "  Web access  noVNC"
+              echo "Web access"
+              echo "  noVNC       enabled"
+              echo "  Browser     supported"
               echo
 
               echo "Status"
@@ -268,15 +268,16 @@ jobs:
           exit 1
 
       # ==========================================================
-      # VNC
+      # NOVNC
       # ==========================================================
 
-      - name: Start VNC
-        env:
-          DISPLAY: :99
+      - name: Start noVNC
         run: |
           set -e
 
+          # Local VNC backend.
+          # It is NOT publicly exposed.
+          DISPLAY=:99 \
           x11vnc \
             -display :99 \
             -rfbport 5900 \
@@ -288,28 +289,19 @@ jobs:
             -noxrecord \
             -noxfixes \
             -noxdamage \
-            > /tmp/actionboxvm-vnc.log 2>&1 &
+            > /tmp/actionboxvm-rfb.log 2>&1 &
 
-          echo $! > /tmp/actionboxvm-vnc.pid
+          echo $! > /tmp/actionboxvm-rfb.pid
 
           sleep 3
 
-          if ! kill -0 "$(cat /tmp/actionboxvm-vnc.pid)" 2>/dev/null; then
-            echo "VNC failed to start."
-            cat /tmp/actionboxvm-vnc.log || true
+          if ! kill -0 "$(cat /tmp/actionboxvm-rfb.pid)" 2>/dev/null; then
+            echo "Local VNC backend failed."
+            cat /tmp/actionboxvm-rfb.log || true
             exit 1
           fi
 
-          echo "VNC is running."
-
-      # ==========================================================
-      # NOVNC
-      # ==========================================================
-
-      - name: Start noVNC
-        run: |
-          set -e
-
+          # noVNC talks to the local VNC backend through websockify.
           websockify \
             --web=/usr/share/novnc \
             6080 \
@@ -404,101 +396,92 @@ jobs:
           echo "noVNC:"
           echo "$TUNNEL_NOVNC"
           echo
-
       # ==========================================================
-      # INITIAL STATUS
+      # STATUS.JSON
       # ==========================================================
 
-      - name: Create STATUS.txt
+      - name: Create status.json
         run: |
           set -e
 
           TIMESTAMP="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
-          printf '%s\n' \
-            'ACTIONBOXVM STATUS' \
-            '' \
-            'STATUS' \
-            'ONLINE' \
-            '' \
-            'PROJECT' \
-            'ActionBoxVM' \
-            '' \
-            'WORKFLOW' \
-            'ActionBoxVM' \
-            '' \
-            'STARTED' \
-            "$TIMESTAMP" \
-            '' \
-            'GITHUB ACTIONS RUN' \
-            "$RUN_URL" \
-            '' \
-            'ACCESS' \
-            "$TUNNEL_NOVNC" \
-            '' \
-            'DESKTOP' \
-            'OS Ubuntu' \
-            'DISPLAY Xvfb :99' \
-            'RESOLUTION 1280x720' \
-            'WINDOW MANAGER Fluxbox' \
-            'TERMINAL Xterm' \
-            '' \
-            'SERVICES' \
-            'VNC x11vnc' \
-            'NOVNC websockify' \
-            'CLOUDFLARE Quick Tunnel' \
-            '' \
-            'SCREENSHOT' \
-            '0.png is refreshed every 5 minutes.' \
-            '' \
-            'LIFETIME' \
-            'The environment remains available while this GitHub Actions job is running.' \
-            '' \
-            'LAST UPDATED' \
-            "$TIMESTAMP" \
-            > STATUS.txt
-
-      # ==========================================================
-      # INITIAL README UPDATE
-      # ==========================================================
-
-      - name: Update README VNC link
-        env:
-          TUNNEL_NOVNC: ${{ env.TUNNEL_NOVNC }}
-        run: |
-          set -e
-
-          if [ ! -f README.md ]; then
-            echo "README.md not found."
-            exit 0
-          fi
+          SCREENSHOT_RAW="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_REF_NAME}/0.png"
 
           python3 <<'PY'
-          from pathlib import Path
+          import json
           import os
-          import re
+          from pathlib import Path
 
-          path = Path("README.md")
+          data = {
+              "project": "ActionBoxVM",
+              "status": "online",
+              "workflow": "ActionBoxVM",
 
-          text = path.read_text(encoding="utf-8")
-          url = os.environ["TUNNEL_NOVNC"]
+              "repository": os.environ["GITHUB_REPOSITORY"],
 
-          updated, count = re.subn(
-              r"\[VNC\]\([^)]*\)",
-              f"[VNC]({url})",
-              text,
-              count=1,
+              "run": {
+                  "id": os.environ["GITHUB_RUN_ID"],
+                  "url": (
+                      f"https://github.com/"
+                      f"{os.environ['GITHUB_REPOSITORY']}/"
+                      f"actions/runs/"
+                      f"{os.environ['GITHUB_RUN_ID']}"
+                  ),
+              },
+
+              "access": {
+                  "novnc": os.environ["TUNNEL_NOVNC"],
+              },
+
+              "desktop": {
+                  "os": "Ubuntu",
+                  "window_manager": "Fluxbox",
+                  "display": "Xvfb :99",
+                  "resolution": "1280x720",
+                  "terminal": "Xterm",
+              },
+
+              "services": {
+                  "novnc": "websockify",
+                  "vnc_backend": "x11vnc",
+                  "cloudflare": "Quick Tunnel",
+              },
+
+              "files": {
+                  "screenshot": "0.png",
+                  "screenshot_raw": (
+                      f"https://raw.githubusercontent.com/"
+                      f"{os.environ['GITHUB_REPOSITORY']}/"
+                      f"{os.environ['GITHUB_REF_NAME']}/0.png"
+                  ),
+                  "status": "status.json",
+              },
+
+              "screenshot": {
+                  "interval_seconds": 300,
+                  "interval": "5 minutes",
+              },
+
+              "lifetime": {
+                  "description": (
+                      "The environment remains available while "
+                      "the GitHub Actions job is running."
+                  ),
+              },
+
+              "updated": os.environ["TIMESTAMP"],
+          }
+
+          Path("status.json").write_text(
+              json.dumps(data, indent=2) + "\n",
+              encoding="utf-8",
           )
-
-          if count == 0:
-              print("No [VNC](...) marker found.")
-              raise SystemExit(0)
-
-          path.write_text(updated, encoding="utf-8")
-
-          print("README VNC link updated.")
           PY
+        env:
+          TUNNEL_NOVNC: ${{ env.TUNNEL_NOVNC }}
+          TIMESTAMP: ${{ '' }}
 
       # ==========================================================
       # INITIAL SCREENSHOT
@@ -521,6 +504,74 @@ jobs:
           echo "Initial 0.png captured."
 
       # ==========================================================
+      # ACTIONBOX.DESKTOP
+      # ==========================================================
+
+      - name: Create actionbox.desktop
+        run: |
+          set -e
+
+          mkdir -p actionboxvm
+
+          cat > actionboxvm/actionbox.desktop <<EOF
+          [Desktop Entry]
+          Version=1.0
+          Type=Link
+          Name=ActionBoxVM
+          Comment=Open the ActionBoxVM noVNC desktop
+          URL=$TUNNEL_NOVNC
+          Icon=computer
+          EOF
+
+          echo "actionbox.desktop created."
+
+      # ==========================================================
+      # README LINKS
+      # ==========================================================
+
+      - name: Update README access links
+        run: |
+          set -e
+
+          if [ ! -f README.md ]; then
+            echo "README.md not found."
+            exit 0
+          fi
+
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          path = Path("README.md")
+          text = path.read_text(encoding="utf-8")
+
+          novnc = os.environ["TUNNEL_NOVNC"]
+
+          text, novnc_count = re.subn(
+              r"\[noVNC\]\([^)]*\)",
+              f"[noVNC]({novnc})",
+              text,
+              count=1,
+          )
+
+          # Raw VNC is intentionally not exposed.
+          text, vnc_count = re.subn(
+              r"\[VNC\]\([^)]*\)",
+              "[VNC](#raw-vnc-not-exposed)",
+              text,
+              count=1,
+          )
+
+          path.write_text(text, encoding="utf-8")
+
+          print(f"Updated noVNC markers: {novnc_count}")
+          print(f"Updated VNC markers: {vnc_count}")
+          PY
+        env:
+          TUNNEL_NOVNC: ${{ env.TUNNEL_NOVNC }}
+
+      # ==========================================================
       # PUBLISH INITIAL STATE
       # ==========================================================
 
@@ -532,7 +583,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add 0.png
-          git add STATUS.txt
+          git add status.json
+          git add actionboxvm/actionbox.desktop
 
           if [ -f README.md ]; then
             git add README.md
@@ -547,16 +599,6 @@ jobs:
 
       # ==========================================================
       # RUN SCREENSHOT SERVICE + KEEP VM ALIVE
-      # ==========================================================
-      #
-      # IMPORTANT:
-      #
-      # The screenshot service is started from THIS long-running
-      # step. The step does not finish while ActionBoxVM is alive.
-      #
-      # The screenshot worker therefore remains on the same runner
-      # and uses the same DISPLAY=:99 exposed through VNC.
-      #
       # ==========================================================
 
       - name: Run ActionBoxVM
@@ -591,12 +633,7 @@ jobs:
           if [ ! -f /tmp/actionboxvm/screenshot-worker.pid ]; then
             echo "Screenshot worker did not start."
 
-            echo
-            echo "Screenshot supervisor log:"
             cat /tmp/actionboxvm/screenshot-supervisor.log || true
-
-            echo
-            echo "Screenshot worker log:"
             cat /tmp/actionboxvm/screenshot-worker.log || true
 
             exit 1
@@ -607,7 +644,6 @@ jobs:
           if ! kill -0 "$SCREENSHOT_PID" 2>/dev/null; then
             echo "Screenshot worker is not running."
 
-            echo
             cat /tmp/actionboxvm/screenshot-worker.log || true
 
             exit 1
@@ -622,10 +658,6 @@ jobs:
 
           while true; do
 
-            # ------------------------------------------------------
-            # DISPLAY
-            # ------------------------------------------------------
-
             if ! kill -0 \
               "$(cat /tmp/actionboxvm-xvfb.pid)" \
               2>/dev/null; then
@@ -634,21 +666,13 @@ jobs:
               exit 1
             fi
 
-            # ------------------------------------------------------
-            # VNC
-            # ------------------------------------------------------
-
             if ! kill -0 \
-              "$(cat /tmp/actionboxvm-vnc.pid)" \
+              "$(cat /tmp/actionboxvm-rfb.pid)" \
               2>/dev/null; then
 
-              echo "VNC stopped."
+              echo "Local VNC backend stopped."
               exit 1
             fi
-
-            # ------------------------------------------------------
-            # NOVNC
-            # ------------------------------------------------------
 
             if ! kill -0 \
               "$(cat /tmp/actionboxvm-novnc.pid)" \
@@ -658,10 +682,6 @@ jobs:
               exit 1
             fi
 
-            # ------------------------------------------------------
-            # CLOUDFLARE
-            # ------------------------------------------------------
-
             if ! kill -0 \
               "$(cat /tmp/actionboxvm-cloudflared.pid)" \
               2>/dev/null; then
@@ -669,10 +689,6 @@ jobs:
               echo "Cloudflare Tunnel stopped."
               exit 1
             fi
-
-            # ------------------------------------------------------
-            # SCREENSHOT SERVICE
-            # ------------------------------------------------------
 
             if [ ! -f /tmp/actionboxvm/screenshot-worker.pid ]; then
               echo "Screenshot worker PID file is missing."
@@ -682,6 +698,7 @@ jobs:
             SCREENSHOT_PID="$(cat /tmp/actionboxvm/screenshot-worker.pid)"
 
             if ! kill -0 "$SCREENSHOT_PID" 2>/dev/null; then
+
               echo "Screenshot worker stopped."
 
               echo
