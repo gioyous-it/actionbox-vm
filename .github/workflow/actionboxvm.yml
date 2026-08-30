@@ -1,0 +1,676 @@
+name: ActionBoxVM
+
+on:
+  workflow_dispatch:
+
+  # Start a fresh ActionBoxVM every 12 hours.
+  schedule:
+    - cron: "0 */12 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  actionboxvm:
+    name: ActionBoxVM
+    runs-on: ubuntu-latest
+
+    # GitHub-hosted runners have a practical maximum job lifetime.
+    timeout-minutes: 340
+
+    steps:
+
+      # ==========================================================
+      # CHECKOUT
+      # ==========================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # ==========================================================
+      # INSTALLATION
+      # ==========================================================
+
+      - name: Install ActionBoxVM
+        run: |
+          set -e
+
+          sudo apt-get update
+
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            fluxbox \
+            xterm \
+            xvfb \
+            x11vnc \
+            novnc \
+            websockify \
+            xdotool \
+            x11-utils \
+            imagemagick \
+            curl \
+            wget \
+            git \
+            nano \
+            vim \
+            less \
+            tree \
+            htop \
+            btop \
+            jq \
+            zip \
+            unzip \
+            file \
+            procps \
+            psmisc \
+            pciutils \
+            usbutils \
+            ca-certificates \
+            dnsutils \
+            iproute2 \
+            iputils-ping \
+            net-tools \
+            tar \
+            gzip \
+            bzip2 \
+            xz-utils \
+            python3 \
+            python3-pip \
+            python3-venv \
+            python3-dev \
+            build-essential
+
+          echo "ActionBoxVM environment installed."
+
+      # ==========================================================
+      # FLUXBOX CONFIGURATION
+      # ==========================================================
+
+      - name: Configure Fluxbox
+        run: |
+          set -e
+
+          mkdir -p "$HOME/.fluxbox"
+
+          cat > "$HOME/.fluxbox/init" <<'EOF'
+          session.screen0.toolbar.visible: true
+          session.screen0.toolbar.placement: BottomCenter
+          session.screen0.toolbar.height: 22
+          session.screen0.toolbar.widthPercent: 100
+
+          session.screen0.workspaces: 1
+
+          session.screen0.menuDelay: 0
+          session.screen0.focusNewWindows: true
+          session.screen0.focusModel: ClickFocus
+
+          session.screen0.fullMaximization: true
+          session.screen0.maxDisableMove: false
+          session.screen0.maxDisableResize: false
+          EOF
+
+          cat > "$HOME/.fluxbox/menu" <<'EOF'
+          [begin] (ActionBoxVM)
+
+          [exec] (Terminal) {xterm}
+
+          [separator]
+
+          [exec] (Python 3) {xterm -e python3}
+
+          [exec] (System Monitor) {xterm -e htop}
+
+          [exec] (Btop) {xterm -e btop}
+
+          [exec] (File Browser) {xterm -e bash -c 'cd "$HOME"; exec bash'}
+
+          [exec] (Git Status) {xterm -e bash -c 'git status; echo; exec bash'}
+
+          [exec] (System Information) {xterm -e bash -c 'uname -a; echo; exec bash'}
+
+          [separator]
+
+          [exec] (About ActionBoxVM) {xmessage -center "ActionBoxVM\n\nGitHub Actions graphical environment\nUbuntu + Fluxbox + Xvfb + VNC"}
+
+          [separator]
+
+          [exit] (Exit)
+          EOF
+
+          echo "Fluxbox configured."
+
+      # ==========================================================
+      # START VIRTUAL DISPLAY
+      # ==========================================================
+
+      - name: Start Xvfb
+        run: |
+          set -e
+
+          Xvfb :99 \
+            -screen 0 1280x720x24 \
+            -ac \
+            +extension GLX \
+            +render \
+            > /tmp/actionboxvm-xvfb.log 2>&1 &
+
+          echo $! > /tmp/actionboxvm-xvfb.pid
+
+          sleep 2
+
+          if ! kill -0 "$(cat /tmp/actionboxvm-xvfb.pid)" 2>/dev/null; then
+            echo "Xvfb failed to start."
+            cat /tmp/actionboxvm-xvfb.log || true
+            exit 1
+          fi
+
+          echo "Xvfb :99 is running."
+
+      # ==========================================================
+      # START FLUXBOX
+      # ==========================================================
+
+      - name: Start Fluxbox
+        env:
+          DISPLAY: :99
+        run: |
+          set -e
+
+          fluxbox \
+            > /tmp/actionboxvm-fluxbox.log 2>&1 &
+
+          echo $! > /tmp/actionboxvm-fluxbox.pid
+
+          sleep 2
+
+          if ! kill -0 "$(cat /tmp/actionboxvm-fluxbox.pid)" 2>/dev/null; then
+            echo "Fluxbox failed to start."
+            cat /tmp/actionboxvm-fluxbox.log || true
+            exit 1
+          fi
+
+          echo "Fluxbox is running."
+
+      # ==========================================================
+      # START ACTIONBOXVM TERMINAL
+      # ==========================================================
+
+      - name: Start ActionBoxVM terminal
+        env:
+          DISPLAY: :99
+        run: |
+          set -e
+
+          xterm \
+            -title "ActionBoxVM" \
+            -geometry 72x20+20+20 \
+            -fa "Monospace" \
+            -fs 11 \
+            -bg "#111111" \
+            -fg "#eeeeee" \
+            -sb \
+            -rightbar \
+            -e bash -c '
+              clear
+
+              printf "\033[1;36m"
+              echo "========================================"
+              echo "              ActionBoxVM"
+              echo "========================================"
+              printf "\033[0m"
+
+              echo
+              echo "GitHub Actions graphical environment"
+              echo
+              echo "Environment"
+              echo "  OS          Ubuntu"
+              echo "  Desktop     Fluxbox"
+              echo "  Display     Xvfb :99"
+              echo "  Resolution  1280x720"
+              echo "  Terminal    Xterm"
+              echo
+              echo "Tools"
+              echo "  Git         Python 3"
+              echo "  nano        Vim"
+              echo "  curl        wget"
+              echo "  jq          tree"
+              echo "  htop        btop"
+              echo "  zip         unzip"
+              echo
+              echo "Services"
+              echo "  VNC         x11vnc"
+              echo "  Web access  noVNC"
+              echo
+              echo "Status"
+              echo "  Desktop     ONLINE"
+              echo "  Terminal    ONLINE"
+              echo
+              echo "ActionBoxVM is ready."
+              echo
+
+              while true; do
+                sleep 60
+              done
+            ' &
+
+          for i in {1..20}; do
+            if xdotool search \
+              --name "^ActionBoxVM$" \
+              >/dev/null 2>&1; then
+
+              echo "ActionBoxVM terminal is running."
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "ActionBoxVM terminal was not detected."
+          exit 1
+
+      # ==========================================================
+      # START VNC
+      # ==========================================================
+
+      - name: Start VNC
+        env:
+          DISPLAY: :99
+        run: |
+          set -e
+
+          x11vnc \
+            -display :99 \
+            -rfbport 5900 \
+            -listen 127.0.0.1 \
+            -forever \
+            -shared \
+            -nopw \
+            -xkb \
+            -noxrecord \
+            -noxfixes \
+            -noxdamage \
+            > /tmp/actionboxvm-vnc.log 2>&1 &
+
+          echo $! > /tmp/actionboxvm-vnc.pid
+
+          sleep 3
+
+          if ! kill -0 "$(cat /tmp/actionboxvm-vnc.pid)" 2>/dev/null; then
+            echo "VNC failed to start."
+            cat /tmp/actionboxvm-vnc.log || true
+            exit 1
+          fi
+
+          echo "VNC is running on 127.0.0.1:5900."
+
+      # ==========================================================
+      # START NOVNC
+      # ==========================================================
+
+      - name: Start noVNC
+        run: |
+          set -e
+
+          websockify \
+            --web=/usr/share/novnc \
+            6080 \
+            127.0.0.1:5900 \
+            > /tmp/actionboxvm-novnc.log 2>&1 &
+
+          echo $! > /tmp/actionboxvm-novnc.pid
+
+          sleep 3
+
+          if ! kill -0 "$(cat /tmp/actionboxvm-novnc.pid)" 2>/dev/null; then
+            echo "noVNC failed to start."
+            cat /tmp/actionboxvm-novnc.log || true
+            exit 1
+          fi
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            http://127.0.0.1:6080/vnc.html \
+            >/dev/null
+
+          echo "noVNC is responding."
+
+      # ==========================================================
+      # CLOUDFLARE
+      # ==========================================================
+
+      - name: Install Cloudflare Tunnel
+        run: |
+          set -e
+
+          curl \
+            --fail \
+            --location \
+            --silent \
+            --show-error \
+            https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
+            --output /tmp/cloudflared.deb
+
+          sudo dpkg -i /tmp/cloudflared.deb
+
+          cloudflared --version
+
+      - name: Start Cloudflare Tunnel
+        run: |
+          set -e
+
+          cloudflared tunnel \
+            --url http://127.0.0.1:6080 \
+            --no-autoupdate \
+            --loglevel info \
+            > /tmp/actionboxvm-cloudflared.log 2>&1 &
+
+          echo $! > /tmp/actionboxvm-cloudflared.pid
+
+          TUNNEL_URL=""
+
+          for i in {1..60}; do
+            TUNNEL_URL="$(
+              grep -oE \
+                'https://[A-Za-z0-9.-]+\.trycloudflare\.com' \
+                /tmp/actionboxvm-cloudflared.log \
+                | head -n 1 \
+                || true
+            )"
+
+            if [ -n "$TUNNEL_URL" ]; then
+              break
+            fi
+
+            sleep 2
+          done
+
+          if [ -z "$TUNNEL_URL" ]; then
+            echo "Cloudflare Tunnel URL was not found."
+            cat /tmp/actionboxvm-cloudflared.log || true
+            exit 1
+          fi
+
+          TUNNEL_NOVNC="${TUNNEL_URL}/vnc.html?autoconnect=true&resize=remote"
+
+          echo "TUNNEL_URL=$TUNNEL_URL" >> "$GITHUB_ENV"
+          echo "TUNNEL_NOVNC=$TUNNEL_NOVNC" >> "$GITHUB_ENV"
+
+          echo
+          echo "========================================"
+          echo "             ActionBoxVM"
+          echo "========================================"
+          echo
+          echo "noVNC:"
+          echo "$TUNNEL_NOVNC"
+          echo
+          echo "========================================"
+
+      # ==========================================================
+      # INITIAL SCREENSHOT
+      # ==========================================================
+
+      - name: Capture initial desktop screenshot
+        env:
+          DISPLAY: :99
+        run: |
+          set -e
+
+          import \
+            -display :99 \
+            -window root \
+            -quality 92 \
+            0.png
+
+          test -s 0.png
+
+          echo "Initial 0.png created."
+
+      # ==========================================================
+      # CREATE STATUS
+      # ==========================================================
+
+      - name: Create STATUS.txt
+        run: |
+          set -e
+
+          TIMESTAMP="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          printf '%s\n' \
+            'ACTIONBOXVM STATUS' \
+            '' \
+            'STATUS' \
+            'ONLINE' \
+            '' \
+            'PROJECT' \
+            'ActionBoxVM' \
+            '' \
+            'WORKFLOW' \
+            'ActionBoxVM' \
+            '' \
+            'STARTED' \
+            "$TIMESTAMP" \
+            '' \
+            'GITHUB ACTIONS RUN' \
+            "$RUN_URL" \
+            '' \
+            'ACCESS' \
+            "$TUNNEL_NOVNC" \
+            '' \
+            'DESKTOP' \
+            'OS Ubuntu' \
+            'DISPLAY Xvfb :99' \
+            'RESOLUTION 1280x720' \
+            'WINDOW MANAGER Fluxbox' \
+            'TERMINAL Xterm' \
+            '' \
+            'SERVICES' \
+            'VNC x11vnc' \
+            'NOVNC websockify' \
+            'CLOUDFLARE Quick Tunnel' \
+            '' \
+            'SCREENSHOT' \
+            '0.png refreshed every 5 minutes by actionboxvm/screenshot.sh.' \
+            '' \
+            'LIFETIME' \
+            'The environment remains available while this GitHub Actions job is running.' \
+            '' \
+            'LAST UPDATED' \
+            "$TIMESTAMP" \
+            > STATUS.txt
+
+          echo "STATUS.txt created."
+
+      # ==========================================================
+      # UPDATE README
+      # ==========================================================
+
+      - name: Update README VNC link
+        env:
+          TUNNEL_NOVNC: ${{ env.TUNNEL_NOVNC }}
+        run: |
+          set -e
+
+          if [ ! -f README.md ]; then
+            echo "README.md not found. Skipping README update."
+            exit 0
+          fi
+
+          python3 <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          path = Path("README.md")
+          text = path.read_text(encoding="utf-8")
+          url = os.environ["TUNNEL_NOVNC"]
+
+          updated, count = re.subn(
+              r"\[VNC\]\([^)]*\)",
+              f"[VNC]({url})",
+              text,
+              count=1,
+          )
+
+          if count == 0:
+              print("No [VNC](...) marker found.")
+              raise SystemExit(0)
+
+          path.write_text(updated, encoding="utf-8")
+          print("README VNC link updated.")
+          PY
+
+      # ==========================================================
+      # PUBLISH STARTUP STATE
+      # ==========================================================
+
+      - name: Publish ActionBoxVM state
+        run: |
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add 0.png
+          git add STATUS.txt
+
+          if [ -f README.md ]; then
+            git add README.md
+          fi
+
+          if git diff --cached --quiet; then
+            echo "Nothing to publish."
+          else
+            git commit -m "chore: update ActionBoxVM state"
+
+            for attempt in 1 2 3 4 5; do
+              if git push; then
+                echo "ActionBoxVM state published."
+                break
+              fi
+
+              echo "Push failed. Synchronizing with remote..."
+              git pull --rebase origin "$(git branch --show-current)" || true
+              sleep 2
+
+              if [ "$attempt" -eq 5 ]; then
+                echo "Unable to publish ActionBoxVM state."
+                exit 1
+              fi
+            done
+          fi
+
+      # ==========================================================
+      # START SCREENSHOT SERVICE
+      # ==========================================================
+
+      - name: Start screenshot service
+        env:
+          DISPLAY: :99
+        run: |
+          set -e
+
+          SCREENSHOT_SERVICE="actionboxvm/screenshot.sh"
+
+          if [ ! -f "$SCREENSHOT_SERVICE" ]; then
+            echo "Missing $SCREENSHOT_SERVICE"
+            echo "Add the ActionBoxVM screenshot service to the repository."
+            exit 1
+          fi
+
+          chmod +x "$SCREENSHOT_SERVICE"
+
+          nohup \
+            setsid \
+            "$SCREENSHOT_SERVICE" \
+            </dev/null \
+            >/tmp/actionboxvm-screenshot.log 2>&1 &
+
+          echo $! > /tmp/actionboxvm-screenshot-launcher.pid
+
+          sleep 2
+
+          if [ ! -f /tmp/actionboxvm/screenshot-worker.pid ]; then
+            echo "Screenshot service did not start correctly."
+            echo
+            cat /tmp/actionboxvm-screenshot.log || true
+            exit 1
+          fi
+
+          echo "ActionBoxVM screenshot service is running."
+          cat /tmp/actionboxvm/screenshot-worker.pid
+
+      # ==========================================================
+      # ACCESS INFORMATION
+      # ==========================================================
+
+      - name: Display ActionBoxVM information
+        run: |
+          echo
+          echo "============================================================"
+          echo "                       ActionBoxVM"
+          echo "============================================================"
+          echo
+          echo "STATUS"
+          echo "  ONLINE"
+          echo
+          echo "DESKTOP"
+          echo "  Ubuntu"
+          echo "  Fluxbox"
+          echo "  Xvfb :99"
+          echo "  1280x720"
+          echo
+          echo "ACCESS"
+          echo "  ${TUNNEL_NOVNC}"
+          echo
+          echo "SCREENSHOT"
+          echo "  0.png"
+          echo "  Every 5 minutes"
+          echo
+          echo "STATUS"
+          echo "  STATUS.txt"
+          echo
+          echo "============================================================"
+          echo
+
+      # ==========================================================
+      # KEEP VM ALIVE
+      # ==========================================================
+
+      - name: Keep ActionBoxVM running
+        run: |
+          set -e
+
+          while true; do
+
+            if ! kill -0 "$(cat /tmp/actionboxvm-xvfb.pid)" 2>/dev/null; then
+              echo "Xvfb stopped."
+              exit 1
+            fi
+
+            if ! kill -0 "$(cat /tmp/actionboxvm-vnc.pid)" 2>/dev/null; then
+              echo "VNC stopped."
+              exit 1
+            fi
+
+            if ! kill -0 "$(cat /tmp/actionboxvm-novnc.pid)" 2>/dev/null; then
+              echo "noVNC stopped."
+              exit 1
+            fi
+
+            if ! kill -0 "$(cat /tmp/actionboxvm-cloudflared.pid)" 2>/dev/null; then
+              echo "Cloudflare Tunnel stopped."
+              exit 1
+            fi
+
+            if [ -f /tmp/actionboxvm/screenshot-worker.pid ]; then
+              if ! kill -0 "$(cat /tmp/actionboxvm/screenshot-worker.pid)" 2>/dev/null; then
+                echo "Screenshot worker stopped."
+                exit 1
+              fi
+            fi
+
+            sleep 60
+
+          done
