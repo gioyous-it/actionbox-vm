@@ -18,7 +18,7 @@ STATUS = ROOT / "status.json"
 STATE_DIR = Path("/tmp/actionboxvm")
 PID_FILE = STATE_DIR / "screenshot-worker.pid"
 
-INTERVAL = 300
+INTERVAL = 20
 RETRY_INTERVAL = 10
 
 
@@ -433,7 +433,7 @@ log(
 )
 
 log(
-    "Refresh interval: 300 seconds."
+    "Refresh interval: 20 seconds."
 )
 
 
