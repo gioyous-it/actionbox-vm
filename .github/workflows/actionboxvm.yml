@@ -764,6 +764,10 @@ jobs:
 
           rm -f /tmp/actionboxvm/status.pid
 
+          chmod +x ./actionboxvm/status.sh
+
+          test -x ./actionboxvm/status.sh
+
           ./actionboxvm/status.sh \
             > /tmp/actionboxvm/status.log 2>&1 &
 
