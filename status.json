@@ -25,7 +25,7 @@
   "services": {
     "noVNC": {
       "enabled": true,
-      "url": "https://session-dolls-motorcycle-bug.trycloudflare.com/vnc.html?autoconnect=true&resize=remote"
+      "url": "https://logos-chairs-dual-chapters.trycloudflare.com/vnc.html?autoconnect=true&resize=remote"
     },
     "vnc": {
       "enabled": true,
@@ -40,8 +40,8 @@
     "repository": "gioyous-it/actionbox-vm",
     "branch": "main",
     "workflow": "ActionBoxVM",
-    "run_id": "33314586327",
-    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33314586327"
+    "run_id": "33315166091",
+    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33315166091"
   },
   "files": {
     "screenshot": {
@@ -60,5 +60,5 @@
     "vm_refresh_hours": 12,
     "screenshot_refresh_minutes": 5
   },
-  "updated": "2026-08-30 13:36:22 UTC"
+  "updated": "2026-08-30 13:49:25 UTC"
 }
