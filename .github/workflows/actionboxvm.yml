@@ -521,7 +521,7 @@ jobs:
             exit 1
           fi
 
-          TUNNEL_NOVNC="${TUNNEL_URL}/vnc.html?autoconnect=true&resize=local"
+          TUNNEL_NOVNC="${TUNNEL_URL}/vnc.html?autoconnect=true&resize=scale"
 
           echo "TUNNEL_URL=$TUNNEL_URL" >> "$GITHUB_ENV"
           echo "TUNNEL_NOVNC=$TUNNEL_NOVNC" >> "$GITHUB_ENV"
