@@ -161,3 +161,20 @@ You can use, modify, copy, redistribute, and incorporate the project into other 
 ActionBoxVM
 
 Ubuntu · Fluxbox · Xvfb · VNC · noVNC · GitHub Actions
+
+---
+
+Tips and Tricks
+
+Free Hosting: You can use this to Host your own Web Server or Service. Read the other Tricks before doing that. Keep in Mind the earlier VM version you use the more likely there Is gonna be a cyberattack.
+
+Personal Private Virtual Machine: You can get a private Virtual Machine by forking this Project and running the ActionBoxVM Actor. You can also give access to your Friends for fun.
+
+Remove Limits: There are some limits that Will stop the machine approximately either every 5 hours or 12 hours. You can remove those to host your personal service. 
+
+The FogCam-style Preview: 0.png acts as a monitor. It Is at approximately 0.05 FPS. It also acts as a dynamically updating Screenshot, so whenever you want to show something cool, Download that Image. (If you don't like noVNC you can also code a minimal client to view the computer, as long as you consider 0.05 FPS hearable)
+
+Customize to your liking: You can remove features like Preview and the dynamically opening XTerm Window.
+
+Wayland: oh no. that's not Easy. if you Need wayland apps, run "sudo apt install weston" then run "weston" a small Window appears. when you open a wayland app, It Will automatically load inside the Weston Window. if you don't like doing It This way, making a Wayland version of This project Is gonna be a pain.
+
