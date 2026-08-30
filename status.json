@@ -25,7 +25,11 @@
   "services": {
     "noVNC": {
       "enabled": true,
-      "url": "https://real-wisdom-commonwealth-colon.trycloudflare.com/vnc.html?autoconnect=true&resize=remote"
+      "url": "https://problems-bird-characterization-essay.trycloudflare.com/vnc.html?autoconnect=true&resize=remote"
+    },
+    "vnc": {
+      "enabled": true,
+      "address": "127.0.0.1:5900"
     },
     "cloudflare": {
       "enabled": true,
@@ -36,8 +40,8 @@
     "repository": "gioyous-it/actionbox-vm",
     "branch": "main",
     "workflow": "ActionBoxVM",
-    "run_id": "33312148585",
-    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33312148585"
+    "run_id": "33313164940",
+    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33313164940"
   },
   "files": {
     "screenshot": {
@@ -56,5 +60,5 @@
     "vm_refresh_hours": 12,
     "screenshot_refresh_minutes": 5
   },
-  "updated": "2026-08-30 12:42:24 UTC"
+  "updated": "2026-08-30 13:05:09 UTC"
 }
