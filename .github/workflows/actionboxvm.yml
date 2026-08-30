@@ -419,11 +419,10 @@ jobs:
       - name: Create status.json
         env:
           TUNNEL_NOVNC: ${{ env.TUNNEL_NOVNC }}
-          TIMESTAMP: ${{ '' }}
         run: |
           set -e
 
-          TIMESTAMP_VALUE="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          export TIMESTAMP_VALUE="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
           python3 <<'PY'
           import json
@@ -434,6 +433,7 @@ jobs:
           branch = os.environ["GITHUB_REF_NAME"]
           run_id = os.environ["GITHUB_RUN_ID"]
           novnc = os.environ["TUNNEL_NOVNC"]
+          timestamp = os.environ["TIMESTAMP_VALUE"]
 
           data = {
               "project": "ActionBoxVM",
@@ -506,14 +506,18 @@ jobs:
                   "screenshot_refresh_minutes": 5
               },
 
-              "updated": os.environ["TIMESTAMP_VALUE"]
+              "updated": timestamp
           }
 
           Path("status.json").write_text(
               json.dumps(data, indent=2) + "\n",
               encoding="utf-8"
           )
+
+          print("status.json created.")
           PY
+
+          cat status.json
 
       - name: Capture initial screenshot
         env:
