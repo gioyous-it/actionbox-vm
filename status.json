@@ -23,13 +23,15 @@
     "unzip"
   ],
   "services": {
+    "vnc": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 5900,
+      "public": false
+    },
     "noVNC": {
       "enabled": true,
       "url": "https://problems-bird-characterization-essay.trycloudflare.com/vnc.html?autoconnect=true&resize=remote"
-    },
-    "vnc": {
-      "enabled": true,
-      "address": "127.0.0.1:5900"
     },
     "cloudflare": {
       "enabled": true,
@@ -50,7 +52,8 @@
       "refresh_seconds": 300
     },
     "status": {
-      "path": "status.json"
+      "path": "status.json",
+      "refresh_seconds": 300
     },
     "desktop_entry": {
       "path": "actionbox.desktop"
@@ -60,5 +63,5 @@
     "vm_refresh_hours": 12,
     "screenshot_refresh_minutes": 5
   },
-  "updated": "2026-08-30 13:05:09 UTC"
+  "updated": "2026-08-30 13:05:11 UTC"
 }
