@@ -8,7 +8,7 @@ Desktop
 
 Access
 
-[VNC](https://example.com)
+[VNC](https://acquisitions-tba-proxy-exploring.trycloudflare.com/vnc.html?autoconnect=true&resize=remote)
 
 Status
 
