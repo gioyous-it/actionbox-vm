@@ -231,40 +231,6 @@ def configure_git():
 def publish():
     configure_git()
 
-    subprocess.run(
-        [
-            "git",
-            "add",
-            "0.png",
-            "status.json",
-        ],
-        check=True,
-    )
-
-    unchanged = subprocess.run(
-        [
-            "git",
-            "diff",
-            "--cached",
-            "--quiet",
-        ],
-        check=False,
-    )
-
-    if unchanged.returncode == 0:
-        log("0.png and status.json are unchanged.")
-        return
-
-    subprocess.run(
-        [
-            "git",
-            "commit",
-            "-m",
-            "chore: refresh ActionBoxVM status",
-        ],
-        check=True,
-    )
-
     branch = subprocess.check_output(
         [
             "git",
@@ -280,6 +246,66 @@ def publish():
         )
 
     for attempt in range(1, 6):
+
+        log(
+            f"Publishing ActionBoxVM state "
+            f"(attempt {attempt}/5)."
+        )
+
+        subprocess.run(
+            [
+                "git",
+                "fetch",
+                "origin",
+                branch,
+            ],
+            check=True,
+        )
+
+        subprocess.run(
+            [
+                "git",
+                "rebase",
+                f"origin/{branch}",
+            ],
+            check=True,
+        )
+
+        subprocess.run(
+            [
+                "git",
+                "add",
+                "0.png",
+                "status.json",
+            ],
+            check=True,
+        )
+
+        unchanged = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--cached",
+                "--quiet",
+            ],
+            check=False,
+        )
+
+        if unchanged.returncode == 0:
+            log(
+                "0.png and status.json are unchanged."
+            )
+            return
+
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "-m",
+                "chore: refresh ActionBoxVM status",
+            ],
+            check=True,
+        )
 
         result = subprocess.run(
             [
@@ -302,21 +328,11 @@ def publish():
             f"(attempt {attempt}/5)."
         )
 
-        subprocess.run(
-            [
-                "git",
-                "pull",
-                "--rebase",
-                "origin",
-                branch,
-            ],
-            check=False,
-        )
-
         time.sleep(2)
 
     raise RuntimeError(
-        "Unable to publish ActionBoxVM state."
+        "Unable to publish ActionBoxVM state "
+        "after multiple attempts."
     )
 
 
