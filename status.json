@@ -23,15 +23,14 @@
     "unzip"
   ],
   "services": {
-    "vnc": {
-      "enabled": true,
-      "host": "127.0.0.1",
-      "port": 5900,
-      "public": false
-    },
     "noVNC": {
       "enabled": true,
-      "url": "https://enclosed-missouri-implemented-senate.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+      "url": "https://enjoyed-flavor-camcorder-balanced.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+    },
+    "vnc_backend": {
+      "enabled": true,
+      "address": "127.0.0.1:5900",
+      "public": false
     },
     "cloudflare": {
       "enabled": true,
@@ -42,8 +41,8 @@
     "repository": "gioyous-it/actionbox-vm",
     "branch": "main",
     "workflow": "ActionBoxVM",
-    "run_id": "33324650924",
-    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33324650924"
+    "run_id": "33345553620",
+    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33345553620"
   },
   "files": {
     "screenshot": {
@@ -59,9 +58,18 @@
       "path": "actionbox.desktop"
     }
   },
+  "git_policy": {
+    "protected_branch": "main",
+    "escape_branch": "tmp",
+    "allowed_files": [
+      "0.png",
+      "status.json",
+      "actionbox.desktop"
+    ]
+  },
   "lifetime": {
     "vm_refresh_hours": 12,
     "screenshot_refresh_seconds": 20
   },
-  "updated": "2026-08-30 17:25:09 UTC"
+  "updated": "2026-08-31 00:47:09 UTC"
 }
