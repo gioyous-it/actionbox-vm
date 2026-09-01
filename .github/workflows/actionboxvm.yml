@@ -3,7 +3,7 @@ name: ActionBoxVM
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */12 * * *"
+    - cron: "0 */6 * * *"
 
 permissions:
   contents: write
@@ -16,7 +16,6 @@ jobs:
   actionboxvm:
     name: ActionBoxVM
     runs-on: ubuntu-latest
-    timeout-minutes: 719
 
     steps:
 
