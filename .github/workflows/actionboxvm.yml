@@ -695,8 +695,7 @@ jobs:
           else
             git commit \
               -m "chore: start ActionBoxVM"
-            git fetch origin main
-            git rebase origin/main
+            git pull --rebase origin main
             git push \
               origin \
               "${GITHUB_REF_NAME}"
