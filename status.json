@@ -23,14 +23,15 @@
     "unzip"
   ],
   "services": {
+    "vnc": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 5900,
+      "public": false
+    },
     "noVNC": {
       "enabled": true,
       "url": "https://combo-overnight-hamilton-knife.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
-    },
-    "vnc_backend": {
-      "enabled": true,
-      "address": "127.0.0.1:5900",
-      "public": false
     },
     "cloudflare": {
       "enabled": true,
@@ -58,18 +59,9 @@
       "path": "actionbox.desktop"
     }
   },
-  "git_policy": {
-    "protected_branch": "main",
-    "escape_branch": "tmp",
-    "allowed_files": [
-      "0.png",
-      "status.json",
-      "actionbox.desktop"
-    ]
-  },
   "lifetime": {
     "vm_refresh_hours": 12,
     "screenshot_refresh_seconds": 20
   },
-  "updated": "2026-09-02 15:30:50 UTC"
+  "updated": "2026-09-02 15:30:52 UTC"
 }
