@@ -23,15 +23,14 @@
     "unzip"
   ],
   "services": {
-    "vnc": {
-      "enabled": true,
-      "host": "127.0.0.1",
-      "port": 5900,
-      "public": false
-    },
     "noVNC": {
       "enabled": true,
-      "url": "https://combo-overnight-hamilton-knife.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+      "url": "https://farm-yesterday-consultation-specs.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+    },
+    "vnc_backend": {
+      "enabled": true,
+      "address": "127.0.0.1:5900",
+      "public": false
     },
     "cloudflare": {
       "enabled": true,
@@ -42,8 +41,8 @@
     "repository": "gioyous-it/actionbox-vm",
     "branch": "main",
     "workflow": "ActionBoxVM",
-    "run_id": "33648914165",
-    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33648914165"
+    "run_id": "33705346953",
+    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33705346953"
   },
   "files": {
     "screenshot": {
@@ -59,9 +58,18 @@
       "path": "actionbox.desktop"
     }
   },
+  "git_policy": {
+    "protected_branch": "main",
+    "escape_branch": "tmp",
+    "allowed_files": [
+      "0.png",
+      "status.json",
+      "actionbox.desktop"
+    ]
+  },
   "lifetime": {
     "vm_refresh_hours": 12,
     "screenshot_refresh_seconds": 20
   },
-  "updated": "2026-09-02 21:30:28 UTC"
+  "updated": "2026-09-03 01:52:44 UTC"
 }
