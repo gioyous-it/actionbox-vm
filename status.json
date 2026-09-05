@@ -23,15 +23,14 @@
     "unzip"
   ],
   "services": {
-    "vnc": {
-      "enabled": true,
-      "host": "127.0.0.1",
-      "port": 5900,
-      "public": false
-    },
     "noVNC": {
       "enabled": true,
-      "url": "https://rebates-jpg-demonstration-before.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+      "url": "https://dairy-fortune-prophet-omaha.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+    },
+    "vnc_backend": {
+      "enabled": true,
+      "address": "127.0.0.1:5900",
+      "public": false
     },
     "cloudflare": {
       "enabled": true,
@@ -42,8 +41,8 @@
     "repository": "gioyous-it/actionbox-vm",
     "branch": "main",
     "workflow": "ActionBoxVM",
-    "run_id": "33958382020",
-    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33958382020"
+    "run_id": "33987757205",
+    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/33987757205"
   },
   "files": {
     "screenshot": {
@@ -59,9 +58,18 @@
       "path": "actionbox.desktop"
     }
   },
+  "git_policy": {
+    "protected_branch": "main",
+    "escape_branch": "tmp",
+    "allowed_files": [
+      "0.png",
+      "status.json",
+      "actionbox.desktop"
+    ]
+  },
   "lifetime": {
     "vm_refresh_hours": 12,
     "screenshot_refresh_seconds": 20
   },
-  "updated": "2026-09-05 15:35:10 UTC"
+  "updated": "2026-09-05 19:40:21 UTC"
 }
