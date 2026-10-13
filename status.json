@@ -23,15 +23,14 @@
     "unzip"
   ],
   "services": {
-    "vnc": {
-      "enabled": true,
-      "host": "127.0.0.1",
-      "port": 5900,
-      "public": false
-    },
     "noVNC": {
       "enabled": true,
-      "url": "https://jenny-railroad-guide-meter.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+      "url": "https://inf-tapes-boating-argued.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+    },
+    "vnc_backend": {
+      "enabled": true,
+      "address": "127.0.0.1:5900",
+      "public": false
     },
     "cloudflare": {
       "enabled": true,
@@ -42,8 +41,8 @@
     "repository": "gioyous-it/actionbox-vm",
     "branch": "main",
     "workflow": "ActionBoxVM",
-    "run_id": "38324547963",
-    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/38324547963"
+    "run_id": "38402155745",
+    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/38402155745"
   },
   "files": {
     "screenshot": {
@@ -59,9 +58,18 @@
       "path": "actionbox.desktop"
     }
   },
+  "git_policy": {
+    "protected_branch": "main",
+    "escape_branch": "tmp",
+    "allowed_files": [
+      "0.png",
+      "status.json",
+      "actionbox.desktop"
+    ]
+  },
   "lifetime": {
     "vm_refresh_hours": 12,
     "screenshot_refresh_seconds": 20
   },
-  "updated": "2026-10-13 05:54:24 UTC"
+  "updated": "2026-10-13 13:06:57 UTC"
 }
