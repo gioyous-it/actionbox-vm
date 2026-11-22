@@ -23,15 +23,14 @@
     "unzip"
   ],
   "services": {
-    "vnc": {
-      "enabled": true,
-      "host": "127.0.0.1",
-      "port": 5900,
-      "public": false
-    },
     "noVNC": {
       "enabled": true,
-      "url": "https://cove-passive-steal-amber.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+      "url": "https://status-payroll-spread-persian.trycloudflare.com/vnc.html?autoconnect=true&resize=scale"
+    },
+    "vnc_backend": {
+      "enabled": true,
+      "address": "127.0.0.1:5900",
+      "public": false
     },
     "cloudflare": {
       "enabled": true,
@@ -42,8 +41,8 @@
     "repository": "gioyous-it/actionbox-vm",
     "branch": "main",
     "workflow": "ActionBoxVM",
-    "run_id": "44957200170",
-    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/44957200170"
+    "run_id": "45028964194",
+    "run_url": "https://github.com/gioyous-it/actionbox-vm/actions/runs/45028964194"
   },
   "files": {
     "screenshot": {
@@ -59,9 +58,18 @@
       "path": "actionbox.desktop"
     }
   },
+  "git_policy": {
+    "protected_branch": "main",
+    "escape_branch": "tmp",
+    "allowed_files": [
+      "0.png",
+      "status.json",
+      "actionbox.desktop"
+    ]
+  },
   "lifetime": {
     "vm_refresh_hours": 12,
     "screenshot_refresh_seconds": 20
   },
-  "updated": "2026-11-22 04:31:39 UTC"
+  "updated": "2026-11-22 13:45:06 UTC"
 }
